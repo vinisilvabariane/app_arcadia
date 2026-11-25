@@ -180,7 +180,8 @@ function Collections() {
         : FRANCHISES.map((f) => ({ f, games: franchiseGames(all, f) }))
             .filter((x) => x.games.length >= 3)
             .sort((a, b) => b.games.length - a.games.length)
-            .slice(0, 14)
+            .slice(0, 14) // as 14 maiores...
+            .sort((a, b) => a.f.name.localeCompare(b.f.name, 'pt')) // ...mostradas em ordem alfabética
             .map((x) => ({ ...x, cover: pickCovers(x.games, 1)[0] })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [all, loading, coverTick],

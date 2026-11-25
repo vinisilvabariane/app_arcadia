@@ -27,7 +27,7 @@ export function Franchises() {
     () =>
       FRANCHISES.map((f) => ({ f, games: franchiseGames(all, f) }))
         .filter((x) => x.games.length)
-        .sort((a, b) => b.games.length - a.games.length),
+        .sort((a, b) => a.f.name.localeCompare(b.f.name, 'pt')),
     [all],
   );
   const total = list.reduce((s, x) => s + x.games.length, 0);

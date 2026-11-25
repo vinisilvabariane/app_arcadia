@@ -6,7 +6,7 @@
 /** Chave de API do Google, restrita no Google Cloud a "Drive API" e ao endereço do site.
     Ela é pública por natureza (vai junto com o site); a proteção são essas restrições.
     Vazia = recurso desligado: o botão Jogar não aparece e o resto do site segue igual. */
-const DEFAULT_DRIVE_API_KEY = '';
+const DEFAULT_DRIVE_API_KEY = 'AIzaSyCmUarVwsvzxoqkixihNQRrf8u9ylS2eO0';
 export const DRIVE_API_KEY: string = import.meta.env.VITE_DRIVE_API_KEY || DEFAULT_DRIVE_API_KEY;
 
 /** Só no `npm run dev`: usa este arquivo local no lugar do Drive, pra testar sem chave.

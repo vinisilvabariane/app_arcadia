@@ -1,4 +1,4 @@
-import { Dices, Gamepad2, Heart, Home, Layers, LayoutGrid, Monitor, RefreshCw, Search, Settings, type LucideIcon } from 'lucide-react';
+import { Dices, Gamepad2, Heart, Home, Layers, LayoutGrid, Monitor, Play, RefreshCw, Search, Settings, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FRANCHISES } from '../data/franchises';
@@ -9,14 +9,17 @@ import { useUi } from '../store/ui';
 import { GameModal } from './GameModal';
 import { Logo } from './Logo';
 
-const NAV: { to: string; label: string; icon: LucideIcon; also?: string }[] = [
+/** tab = nome mais curto pra barra de baixo do celular, onde cada item tem pouco espaço */
+const NAV: { to: string; label: string; tab?: string; icon: LucideIcon; also?: string }[] = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/consoles', label: 'Consoles', icon: LayoutGrid, also: '/console/' },
+  // só com o "Jogar no navegador" ligado (chave de API do Drive)
+  ...(PLAY_ENABLED ? [{ to: '/jogar', label: 'Jogar', icon: Play }] : []),
   { to: '/franquias', label: 'Franquias', icon: Layers, also: '/franquia/' },
   { to: '/recomps', label: 'Recomps', icon: Monitor },
-  { to: '/minha-lista', label: 'Minha lista', icon: Heart },
+  { to: '/minha-lista', label: 'Minha lista', tab: 'Lista', icon: Heart },
   { to: '/sortear', label: 'Sortear', icon: Dices },
-  { to: '/emuladores', label: 'Emuladores', icon: Gamepad2 },
+  { to: '/emuladores', label: 'Emuladores', tab: 'Emular', icon: Gamepad2 },
 ];
 
 function useNavActive() {
@@ -192,7 +195,7 @@ function TabBar() {
         return (
           <NavLink key={n.to} to={n.to} className={'flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-semibold tracking-tight transition ' + (on ? 'text-fg' : 'text-muted')}>
             <n.icon size={20} strokeWidth={2.2} className={on ? 'text-tint-hi' : ''} />
-            <span className="max-w-full truncate">{n.label}</span>
+            <span className="max-w-full truncate">{n.tab || n.label}</span>
           </NavLink>
         );
       })}

@@ -61,6 +61,8 @@ Onde mexer nas coisas mais comuns:
 
 Jogos de NES, SNES, Game Boy/Color/Advance, Mega Drive, Master System, Game Gear, DS, PC Engine e Atari 2600 ganham o botão **Jogar** (N64 e PS1 como experimentais). A ROM é buscada direto da API do Drive, guardada no navegador e rodada no [EmulatorJS](https://emulatorjs.org) dentro de um iframe (`public/player.html`).
 
+A página **Jogar** (no menu) lista só os consoles que rodam; dentro de cada um, clicar na capa abre o jogo direto no emulador. "Continuar jogando" mostra o que está no cache.
+
 O recurso fica **desligado até existir uma chave de API**:
 
 1. No [Google Cloud](https://console.cloud.google.com), crie um projeto e ative a **Google Drive API**.

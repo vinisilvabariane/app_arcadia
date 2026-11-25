@@ -15,6 +15,7 @@ import { useLibrary } from './store/library';
 
 // As telas do "Jogar" só são baixadas quando alguém abre uma delas: não pesam na abertura do site.
 const PlayPage = lazy(() => import('./pages/Play').then((m) => ({ default: m.PlayPage })));
+const PlayHub = lazy(() => import('./pages/PlayHub').then((m) => ({ default: m.PlayHub })));
 const CachePage = lazy(() => import('./pages/Cache').then((m) => ({ default: m.CachePage })));
 
 /* HashRouter (#/consoles): no GitHub Pages não existe servidor pra reescrever rotas,
@@ -49,6 +50,14 @@ export function App() {
           <Route path="sortear" element={<Raffle />} />
           <Route path="emuladores" element={<Emulators />} />
           <Route path="busca" element={<SearchPage />} />
+          <Route
+            path="jogar"
+            element={
+              <Suspense fallback={null}>
+                <PlayHub />
+              </Suspense>
+            }
+          />
           <Route
             path="cache"
             element={

@@ -65,12 +65,12 @@ export function LazyMount({ children, height = 340 }: { children: ReactNode; hei
 const CARD_W = 'w-[136px] shrink-0 snap-start sm:w-[168px]';
 
 /** Fileira de jogos. `games` null = ainda carregando (mostra esqueletos). */
-export function GameRail({ games, ...rest }: Omit<RailProps, 'children'> & { games: Game[] | null }) {
+export function GameRail({ games, play, ...rest }: Omit<RailProps, 'children'> & { games: Game[] | null; play?: boolean }) {
   if (games && !games.length) return null;
   return (
     <Rail {...rest}>
       {games
-        ? games.map((g) => <GameCard key={g.key} game={g} className={CARD_W} />)
+        ? games.map((g) => <GameCard key={g.key} game={g} play={play} className={CARD_W} />)
         : Array.from({ length: 8 }, (_, i) => (
             <div key={i} className={CARD_W}>
               <div className="aspect-[3/4] animate-pulse rounded-lg bg-ink-3" />

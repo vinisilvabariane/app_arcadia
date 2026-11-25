@@ -1,0 +1,127 @@
+@import 'tailwindcss';
+
+/* ---------- tema ---------- */
+@theme {
+  --color-ink: #0b0c12;
+  --color-ink-2: #12141d;
+  --color-ink-3: #1b1e2a;
+  --color-line: #262a38;
+  --color-fg: #eef0f6;
+  --color-muted: #8c92a6;
+  --color-heart: #ff5470;
+
+  --font-display: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
+  --font-sans: 'Hanken Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  --animate-rise: rise 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-fade: fade 0.2s ease both;
+  --animate-pop: pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+  --animate-marquee: marquee 70s linear infinite;
+  --animate-tick: tick 0.12s ease-out;
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+  }
+  @keyframes pop {
+    40% { transform: scale(1.35); }
+  }
+  @keyframes marquee {
+    to { transform: translateX(-50%); }
+  }
+  @keyframes tick {
+    from { transform: translateX(-50%) scale(1.04); }
+  }
+  @keyframes burst {
+    0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--r)); }
+  }
+}
+
+/* --tint é a cor do console/página atual: muda em tempo real (ver useTint) */
+@theme inline {
+  --color-tint: var(--tint);
+}
+
+:root {
+  --tint: #e8a33d;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    scrollbar-color: var(--color-line) transparent;
+  }
+  body {
+    overflow-x: hidden;
+  }
+  button,
+  a,
+  select {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--tint);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--tint) 45%, transparent);
+  }
+}
+
+/* ---------- utilitários próprios ---------- */
+
+/* margem lateral da página */
+@utility gutter {
+  padding-inline: clamp(16px, 4vw, 64px);
+}
+
+/* título grande e condensado */
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: 'wdth' 75;
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* some nas pontas de uma faixa que rola de lado */
+@utility fade-x {
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+/* confete do sorteio */
+.burst i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--k);
+  animation: burst 1.3s cubic-bezier(0.1, 0.7, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

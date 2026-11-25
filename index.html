@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arcádia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* IMPORTANTE: este arquivo não usa crases (template strings) de propósito,
+     porque elas se perdiam ao colar no Apps Script. */
+  :root {
+    --ink: #0b0c12;
+    --ink-2: #12141d;
+    --ink-3: #1b1e2a;
+    --line: #262a38;
+    --text: #eef0f6;
+    --muted: #8c92a6;
+    --tint: #e8a33d;
+    --radius: 8px;
+    --card-w: 172px;
+    --gutter: 4vw;
+    --display: 'Bricolage Grotesque', 'Hanken Grotesk', system-ui, sans-serif;
+    --body: 'Hanken Grotesk', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --barh: 68px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--ink); color: var(--text); font-family: var(--body); }
+  body { overflow-x: hidden; transition: background-color .4s; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
+  :focus-visible { outline: 2px solid var(--tint); outline-offset: 3px; border-radius: 4px; }
+  svg { display: block; }
+
+  /* ambiente: um brilho da cor do console no topo da página */
+  .glow {
+    position: fixed; inset: 0 0 auto 0; height: 70vh; pointer-events: none; z-index: 0;
+    background: radial-gradient(80% 60% at 20% 0%, color-mix(in srgb, var(--tint) 22%, transparent), transparent 70%);
+    transition: background .5s;
+  }
+  #app { position: relative; z-index: 1; min-height: 100vh; }
+
+  /* ---------------- topo ---------------- */
+  .bar {
+    position: sticky; top: 0; z-index: 30;
+    background: linear-gradient(to bottom, rgba(11,12,18,.9), rgba(11,12,18,.55));
+    transition: background .3s, box-shadow .3s;
+  }
+  html.scrolled .bar { background: rgba(11,12,18,.97); box-shadow: 0 1px 0 var(--line), 0 12px 30px -18px rgba(0,0,0,.8); }
+
+  /* navegação */
+  .links { display: flex; align-items: center; gap: 2px; margin-left: 6px; }
+  .nav-link {
+    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 13px; border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap;
+    transition: color .15s, background .15s;
+  }
+  .nav-link:hover { color: var(--text); background: rgba(255,255,255,.05); }
+  .nav-link.on { color: var(--text); }
+  .nav-link.on::after { content: ''; position: absolute; left: 13px; right: 13px; bottom: 1px; height: 2px; border-radius: 2px; background: var(--tint); transition: background .4s; }
+  .nav-link .chev { transition: transform .2s; opacity: .7; }
+  .menu-wrap { position: relative; }
+  .menu-wrap.open .chev { transform: rotate(180deg); }
+  .menu {
+    position: absolute; top: calc(100% + 12px); left: -10px; z-index: 40;
+    width: min(600px, 86vw); max-height: 72vh; overflow: auto;
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+    box-shadow: 0 30px 70px -10px rgba(0,0,0,.75);
+    display: none;
+  }
+  .menu-wrap.open .menu { display: block; animation: rise .18s cubic-bezier(.2,.8,.2,1); }
+  .menu-head { display: flex; align-items: baseline; justify-content: space-between; padding: 4px 8px 10px; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .menu-head button { font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--tint); }
+  .menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; }
+  .menu-item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 9px; font-size: 14px; text-align: left; min-width: 0; }
+  .menu-item:hover, .menu-item:focus-visible { background: var(--ink-3); }
+  .menu-item.on { background: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line); }
+  .menu-item .sw {
+    flex: none; width: 34px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+    background: linear-gradient(150deg, var(--c), color-mix(in srgb, var(--c) 45%, #000));
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: 11px; color: #fff;
+  }
+  .menu-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-item .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .tabbar { display: none; }
+
+  /* página de emuladores */
+  .emus-hero { padding: 6vh var(--gutter) 10px; max-width: 900px; }
+  .emus-hero h1 { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: clamp(48px, 8vw, 104px); line-height: .88; margin: 10px 0 14px; }
+  .emus-hero p { color: var(--muted); font-size: 16px; line-height: 1.55; margin: 0; max-width: 60ch; }
+  .emus-hero p b { color: var(--text); font-weight: 600; }
+  .emus { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+  .emu {
+    --c: var(--tint);
+    position: relative; display: flex; flex-direction: column; gap: 14px; overflow: hidden;
+    padding: 22px; border-radius: 14px; background: var(--ink-2);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transition: transform .2s, box-shadow .2s;
+  }
+  .emu::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--c); }
+  .emu::after { content: ''; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--c) 30%, transparent), transparent 70%); pointer-events: none; }
+  .emu:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 60%, var(--line)), 0 20px 40px -20px rgba(0,0,0,.8); }
+  .emu.wide { grid-column: span 2; flex-direction: row; align-items: stretch; gap: 28px; padding: 28px; }
+  .emu.wide .emu-main { flex: 1.1; display: flex; flex-direction: column; gap: 14px; }
+  .emu.wide .emu-side { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; }
+  .emu-name { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 78; font-size: 32px; line-height: 1; }
+  .emu.wide .emu-name { font-size: 52px; }
+  .emu-for { font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--c); filter: brightness(1.35); margin-top: 8px; }
+  .emu-desc { margin: 0; color: #c3c7d4; font-size: 14px; line-height: 1.55; }
+  .emu-consoles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .emu-consoles .tag { font-family: var(--mono); font-size: 11px; background: rgba(255,255,255,.06); color: var(--muted); }
+  .emu-consoles .tag.mine { background: color-mix(in srgb, var(--k) 30%, transparent); color: #fff; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--k) 70%, transparent); }
+  .emu-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding-top: 6px; }
+  .emu-os { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .btn.sm { padding: 9px 16px 9px 14px; font-size: 14px; }
+  .note-box { margin-top: 26px; padding: 16px 18px; border-radius: 10px; background: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); font-size: 14px; line-height: 1.55; }
+  .note-box b { color: var(--text); }
+  .emu-hint { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+  .emu-hint b { color: var(--text); font-weight: 600; }
+  .emu-hint:hover b { color: var(--tint); }
+  .top {
+    display: flex; align-items: center; gap: 18px;
+    padding: 14px var(--gutter);
+  }
+  .logo { flex: none; border-radius: 8px; }
+  .brand { display: inline-flex; align-items: center; gap: 9px; }
+  .brand .mark { width: 32px; height: 32px; overflow: visible; filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--tint) 45%, transparent)); transition: filter .4s; }
+  .brand .mark .body { transition: fill .4s; }
+  .brand .word {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75;
+    font-size: 25px; letter-spacing: .05em; line-height: 1; color: var(--text); white-space: nowrap;
+  }
+  .brand .word .acc { color: var(--tint); transition: color .4s; }
+  .logo:hover .mark { transform: rotate(-6deg); }
+  .brand .mark { transition: transform .25s cubic-bezier(.2,.8,.2,1), filter .4s; }
+  .nav-link .count, .tab .count {
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center;
+    font-family: var(--mono); font-size: 10px; background: var(--tint); color: #0b0c12; font-weight: 500;
+  }
+  .nav-link .count:empty, .tab .count:empty { display: none; }
+  .tab { position: relative; }
+  .tab .count { position: absolute; top: 0; left: 55%; }
+
+  /* favoritos */
+  .i-on { display: none; }
+  .fav.on > .i-on, .favb.on > .i-on, .big > .i-on { display: block; }
+  .fav.on > .i-off, .favb.on > .i-off { display: none; }
+  .card .fav {
+    position: absolute; left: 10px; top: 10px; z-index: 4; width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; background: rgba(11,12,18,.78); color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); opacity: 0; transform: scale(.8); transition: opacity .2s, transform .2s, color .2s;
+  }
+  .card:hover .fav, .card:focus-within .fav, .card .fav.on { opacity: 1; transform: scale(1); }
+  .card .fav:hover { transform: scale(1.08); }
+  .card .fav.on, .favb.on > .i-on { color: #ff5470; }
+  .favb.on { background: rgba(255,84,112,.16); }
+  @keyframes pop { 40% { transform: scale(1.3); } }
+  .fav.pop, .favb.pop .i-on { animation: pop .35s ease-out; }
+
+  /* home: destaque grande */
+  .hero {
+    position: relative; overflow: hidden; display: flex; align-items: flex-end;
+    min-height: min(80vh, 760px); margin-top: calc(var(--barh) * -1);
+    padding: calc(var(--barh) + 40px) var(--gutter) 9vh;
+  }
+  .hero-bg {
+    position: absolute; inset: -50px; background-size: cover; background-position: center 25%;
+    filter: blur(12px) saturate(1.4) brightness(.62); transform: scale(1.15);
+  }
+  .hero::after {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      linear-gradient(to top, var(--ink) 1%, rgba(11,12,18,.6) 22%, transparent 50%),
+      linear-gradient(90deg, rgba(11,12,18,.96) 0%, rgba(11,12,18,.55) 48%, rgba(11,12,18,.1) 78%);
+  }
+  .hero-inner { position: relative; z-index: 1; width: 100%; display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; }
+  .hero-text { max-width: 680px; }
+  .hero .eyebrow { display: flex; align-items: center; gap: 10px; }
+  .sw {
+    flex: none; display: inline-grid; place-items: center; min-width: 34px; height: 24px; padding: 0 6px; border-radius: 6px;
+    background: linear-gradient(150deg, var(--c), color-mix(in srgb, var(--c) 45%, #000));
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: 11px; letter-spacing: .02em; color: #fff;
+  }
+  .hero h1 {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75;
+    font-size: clamp(46px, 7.4vw, 112px); line-height: .86; letter-spacing: -.01em;
+    margin: 14px 0 18px; text-wrap: balance; text-shadow: 0 6px 40px rgba(0,0,0,.45);
+  }
+  .hero-cover {
+    flex: none; width: clamp(170px, 21vw, 300px); margin: 0 3vw 8px 0;
+    transform: perspective(1000px) rotateY(-16deg) rotateX(3deg); transform-origin: right center;
+  }
+  .hero-cover .poster { border-radius: 10px; box-shadow: 30px 40px 80px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.08); }
+  .hero.swap .hero-text { animation: heroIn .7s cubic-bezier(.2,.8,.2,1); }
+  .hero.swap .hero-cover .poster { animation: coverIn .8s cubic-bezier(.2,.8,.2,1); }
+  @keyframes heroIn { from { opacity: 0; transform: translateY(18px); } }
+  @keyframes coverIn { from { opacity: 0; transform: translateX(30px) scale(.96); } }
+  .dots { position: absolute; right: var(--gutter); bottom: 4.5vh; z-index: 2; display: flex; gap: 6px; }
+  .dots button { width: 18px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.28); transition: width .3s, background .3s; }
+  .dots button.on { width: 36px; background: var(--tint); }
+  .dots button:hover { background: rgba(255,255,255,.6); }
+
+  /* home: fileira de consoles */
+  .ctile {
+    --c: var(--tint); flex: none; position: relative; width: 176px; height: 104px; border-radius: 12px; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 12px 14px; text-align: left;
+    background: linear-gradient(150deg, color-mix(in srgb, var(--c) 80%, #000) 0%, color-mix(in srgb, var(--c) 28%, var(--ink)) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); transition: transform .2s, box-shadow .2s;
+  }
+  .ctile:hover, .ctile:focus-visible { transform: translateY(-3px); box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); outline: none; }
+  .ctile .short { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: 34px; line-height: .85; }
+  .ctile .nm { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .85; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ctile .n { position: absolute; top: 10px; right: 12px; font-family: var(--mono); font-size: 11px; opacity: .75; }
+  .row-head .see-all { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 2px; }
+  .row-head .see-all:hover { color: var(--tint); }
+
+  /* minha lista vazia */
+  .empty-state { text-align: center; padding: 60px 20px 90px; color: var(--muted); }
+  .empty-state .big { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 50%; display: grid; place-items: center; background: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); color: #ff5470; }
+  .empty-state .big svg { width: 30px; height: 30px; }
+  .empty-state h3 { color: var(--text); font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 80; font-size: 28px; margin: 0 0 8px; }
+  .empty-state p { margin: 0 auto 22px; max-width: 42ch; line-height: 1.55; }
+  .crumb { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; white-space: nowrap; min-width: 0; }
+  .crumb b { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+  .crumb button:hover { color: var(--text); }
+  .search {
+    margin-left: auto; display: flex; align-items: center; gap: 10px;
+    background: var(--ink-3); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 16px; width: min(380px, 42vw); transition: border-color .2s, width .3s;
+  }
+  .search:focus-within { border-color: var(--tint); width: min(460px, 50vw); }
+  /* telas médias: nav sem ícones pra sobrar espaço pra busca */
+  @media (min-width: 721px) and (max-width: 1100px) {
+    .nav-link { padding: 9px 9px; }
+    .nav-link > svg { display: none; }
+    .nav-link.on::after { left: 9px; right: 9px; }
+    .search { min-width: 150px; }
+  }
+  .search input { flex: 1; min-width: 0; width: 100%; background: none; border: 0; outline: 0; color: var(--text); font: inherit; font-size: 15px; }
+  .search input::placeholder { color: var(--muted); }
+  .search kbd { font-family: var(--mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+  .icon-btn { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--ink-3); border: 1px solid var(--line); }
+  .icon-btn:hover { border-color: var(--tint); }
+  .icon-btn.spin svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* faixa de filtros por console */
+  .filters {
+    display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+    padding: 4px var(--gutter) 14px;
+  }
+  .filters::-webkit-scrollbar { display: none; }
+  .filters { scroll-behavior: smooth; }
+  /* faixa rolável: setas e esmaecido só aparecem do lado em que ainda tem tag escondida */
+  .fwrap { position: relative; --fade: calc(var(--gutter) + 56px); }
+  .fwrap.r .filters { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); }
+  .fwrap.l .filters { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); }
+  .fwrap.l.r .filters { -webkit-mask-image: linear-gradient(to right, transparent 8px, #000 var(--fade), #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); mask-image: linear-gradient(to right, transparent 8px, #000 var(--fade), #000 calc(100% - var(--fade)), transparent calc(100% - 8px)); }
+  .farrow {
+    position: absolute; top: 3px; z-index: 2; width: 36px; height: 36px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--ink-3); border: 1px solid var(--line); color: var(--text);
+    box-shadow: 0 6px 18px -6px rgba(0,0,0,.8); opacity: 0; pointer-events: none; transform: scale(.85);
+    transition: opacity .2s, transform .2s, border-color .2s;
+  }
+  .farrow:hover { border-color: var(--tint); }
+  .farrow.l { left: max(6px, calc(var(--gutter) - 46px)); }
+  .farrow.r { right: max(6px, calc(var(--gutter) - 46px)); }
+  .fwrap.l .farrow.l, .fwrap.r .farrow.r { opacity: 1; pointer-events: auto; transform: none; }
+  .chip {
+    flex: none; display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line); background: var(--ink-2); border-radius: 999px;
+    padding: 7px 14px; font-size: 13px; font-weight: 500; color: #c9cddb; white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); }
+  .chip .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .chip:hover { border-color: var(--c, var(--tint)); color: #fff; }
+  .chip.on { background: var(--c, var(--tint)); border-color: var(--c, var(--tint)); color: #fff; }
+  .chip.on .n, .chip.on .dot { color: rgba(255,255,255,.8); background-color: rgba(255,255,255,.85); }
+  .chip.on .n { background: none; }
+
+  /* ---------------- início: escolha do console ---------------- */
+  .picker { padding: 5vh var(--gutter) 30px; }
+  .picker h1 {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75;
+    font-size: clamp(44px, 8vw, 104px); line-height: .9; letter-spacing: -.01em; margin: 0;
+  }
+  .picker .lede { color: var(--muted); margin: 14px 0 34px; font-size: 15px; }
+  .picker .lede b { color: var(--text); font-family: var(--mono); font-weight: 500; }
+  .consoles { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+
+  .tile {
+    --c: var(--tint);
+    position: relative; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; text-align: left;
+    background:
+      radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--c) 85%, #fff 0%), transparent 60%),
+      linear-gradient(150deg, color-mix(in srgb, var(--c) 70%, #000) 0%, color-mix(in srgb, var(--c) 25%, var(--ink)) 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s;
+    isolation: isolate;
+  }
+  .tile:hover, .tile:focus-visible { transform: translateY(-4px); box-shadow: inset 0 0 0 2px rgba(255,255,255,.35), 0 18px 40px -12px color-mix(in srgb, var(--c) 70%, transparent); outline: none; }
+  .tile .label { position: absolute; left: 18px; bottom: 16px; right: 45%; z-index: 2; }
+  .tile .short {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75;
+    font-size: 46px; line-height: .85; letter-spacing: -.01em; text-shadow: 0 2px 20px rgba(0,0,0,.35);
+  }
+  .tile .full { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin-top: 8px; opacity: .85; }
+  .tile .count { font-family: var(--mono); font-size: 12px; margin-top: 6px; opacity: .75; }
+  .tile .pt { position: absolute; top: 12px; left: 14px; z-index: 2; font-size: 10px; font-weight: 700; letter-spacing: .1em; background: rgba(0,0,0,.4); border-radius: 4px; padding: 3px 7px; }
+
+  /* leque de capas: a assinatura da tela inicial */
+  .fan { position: absolute; right: 8%; top: 50%; width: 34%; aspect-ratio: 3 / 4; transform: translateY(-46%); z-index: 1; }
+  .fan .poster {
+    position: absolute; inset: 0; border-radius: 6px; box-shadow: 0 10px 24px rgba(0,0,0,.45);
+    transition: transform .35s cubic-bezier(.2,.8,.2,1);
+  }
+  .fan .poster:nth-child(1) { transform: rotate(-12deg) translate(-26%, 4%); }
+  .fan .poster:nth-child(2) { transform: rotate(-3deg) translate(-8%, 0); }
+  .fan .poster:nth-child(3) { transform: rotate(7deg) translate(12%, 2%); }
+  .tile:hover .fan .poster:nth-child(1), .tile:focus-visible .fan .poster:nth-child(1) { transform: rotate(-20deg) translate(-52%, 8%); }
+  .tile:hover .fan .poster:nth-child(2), .tile:focus-visible .fan .poster:nth-child(2) { transform: rotate(-4deg) translate(-12%, -6%); }
+  .tile:hover .fan .poster:nth-child(3), .tile:focus-visible .fan .poster:nth-child(3) { transform: rotate(14deg) translate(30%, 4%); }
+  .fan .poster .ph { font-size: 11px; padding: 8px; }
+
+  /* pastas dentro de um console */
+  .folders { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+  .tile.sub { aspect-ratio: 16 / 9; }
+  .tile.sub .label { right: 40%; bottom: 14px; }
+  .tile.sub .ficon { opacity: .85; margin-bottom: 8px; }
+  .tile.sub .short { font-size: 28px; line-height: .95; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tile.sub .fan { width: 28%; }
+  .section.folder-section { padding-bottom: 6px; }
+  .folder-head { position: relative; padding: 34px var(--gutter) 6px; }
+  .folder-head .path { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; color: var(--muted); }
+  .folder-head .path button:hover { color: var(--text); }
+  .folder-head .path b { color: var(--text); font-weight: 600; }
+  .folder-head h2 { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: clamp(40px, 6.5vw, 84px); line-height: .9; margin: 12px 0 12px; }
+  .folder-head .back { margin-top: 18px; padding: 9px 18px 9px 12px; font-size: 14px; }
+
+  /* ---------------- destaque (billboard) ---------------- */
+  .billboard { position: relative; min-height: min(50vh, 520px); display: flex; align-items: flex-end; padding: 40px var(--gutter) 40px; overflow: hidden; }
+  .billboard .bg { position: absolute; inset: -60px; background-size: cover; background-position: center 30%; filter: blur(14px) saturate(1.3) brightness(.55); transform: scale(1.15); }
+  .billboard::after {
+    content: ''; position: absolute; inset: 0; z-index: 0;
+    background:
+      linear-gradient(to top, var(--ink) 2%, transparent 55%),
+      linear-gradient(to right, rgba(11,12,18,.92) 10%, rgba(11,12,18,.2) 70%);
+  }
+  .billboard .inner { position: relative; z-index: 1; display: flex; align-items: flex-end; gap: 32px; width: 100%; }
+  .billboard .cover { width: clamp(130px, 16vw, 210px); flex: none; }
+  .billboard .cover .poster { box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--tint); }
+  .billboard h2 {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 78;
+    font-size: clamp(34px, 5.6vw, 76px); line-height: .92; margin: 10px 0 14px; max-width: 15ch;
+    text-wrap: balance;
+  }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: var(--muted); font-size: 14px; }
+  .meta .mono { font-family: var(--mono); font-size: 13px; }
+  .tag { background: rgba(255,255,255,.09); color: #d9dce6; border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 500; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; border-radius: 6px; padding: 12px 24px 12px 20px; font-weight: 700; font-size: 15px; transition: transform .15s, background .15s; }
+  .btn-play { background: var(--text); color: #0b0c12; }
+  .btn-play:hover { background: #fff; transform: translateY(-1px); }
+  .btn-soft { background: rgba(255,255,255,.14); }
+  .btn-soft:hover { background: rgba(255,255,255,.24); }
+
+  /* ---------------- fileiras ---------------- */
+  .row { margin: 30px 0 4px; }
+  .row-head { display: flex; align-items: baseline; gap: 12px; padding: 0 var(--gutter); margin-bottom: 8px; }
+  .row-head h3 { margin: 0; font-size: 19px; font-weight: 700; }
+  .row-head .n { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .rail-wrap { position: relative; }
+  .rail { display: flex; gap: 10px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; padding: 10px var(--gutter) 22px; scroll-padding: 0 var(--gutter); }
+  .rail::-webkit-scrollbar { display: none; }
+  .arrow {
+    position: absolute; top: 10px; bottom: 22px; width: var(--gutter); min-width: 40px; z-index: 3;
+    display: grid; place-items: center; background: rgba(11,12,18,.72); opacity: 0; transition: opacity .2s;
+  }
+  .arrow.l { left: 0; } .arrow.r { right: 0; }
+  .rail-wrap:hover .arrow, .arrow:focus-visible { opacity: 1; }
+
+  /* ---------------- cards ---------------- */
+  .card { position: relative; flex: none; width: var(--card-w); }
+  .card .hit { display: block; width: 100%; text-align: left; border-radius: var(--radius); }
+  .poster { position: relative; aspect-ratio: 3 / 4; border-radius: var(--radius); overflow: hidden; background: var(--ink-3); }
+  .poster img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+  .poster .ph {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+    padding: 14px; font-family: var(--display); font-weight: 700; font-variation-settings: 'wdth' 85; font-size: 17px; line-height: 1.05;
+  }
+  .poster .ph small { font-family: var(--body); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .7; }
+  .card .shade {
+    position: absolute; inset: 0; z-index: 2; border-radius: var(--radius); pointer-events: none;
+    background: linear-gradient(to top, rgba(0,0,0,.92) 0%, rgba(0,0,0,.3) 45%, transparent 70%);
+    opacity: 0; transition: opacity .2s;
+  }
+  .card .info { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; pointer-events: none; }
+  .card .info .t { font-weight: 700; font-size: 14px; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .info .s { font-family: var(--mono); font-size: 11px; color: #b9bdcc; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .quick {
+    position: absolute; right: 10px; top: 10px; z-index: 4; width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--text); color: #0b0c12; opacity: 0; transform: scale(.8); transition: opacity .2s, transform .2s;
+  }
+  .card .quick:hover { background: #fff; transform: scale(1.06); }
+  .card .poster { transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s; }
+  .card:hover .poster, .card:focus-within .poster { transform: scale(1.06); box-shadow: 0 16px 34px -10px rgba(0,0,0,.8), 0 0 0 2px var(--tint); }
+  .card:hover .shade, .card:focus-within .shade { opacity: 1; transform: scale(1.06); }
+  .card:hover .info, .card:focus-within .info { opacity: 1; transform: translateY(0) scale(1.0); }
+  .card:hover .quick, .card:focus-within .quick { opacity: 1; transform: scale(1); }
+  .card .below { font-size: 13px; color: #c3c7d4; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { position: absolute; left: 8px; top: 8px; z-index: 2; font-family: var(--mono); font-size: 10px; text-transform: uppercase; background: rgba(0,0,0,.6); border-radius: 3px; padding: 2px 6px; }
+  .flag { position: absolute; right: 8px; bottom: 8px; z-index: 2; font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #0b0c12; background: #f2c94c; border-radius: 3px; padding: 2px 6px; }
+  .card:hover .flag { opacity: 0; }
+  .skeleton .poster { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .4; } }
+
+  /* ---------------- grade (todos os jogos / busca) ---------------- */
+  .section { padding: 34px var(--gutter) 70px; }
+  .section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin-bottom: 18px; }
+  .section-head h3 { margin: 0; font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 80; font-size: 30px; }
+  .section-head .n { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .sort { margin-left: auto; display: flex; gap: 4px; background: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+  .sort button { padding: 6px 12px; border-radius: 999px; font-size: 13px; color: var(--muted); }
+  .sort button.on { background: var(--ink-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr)); gap: 26px 12px; }
+  .grid .card { width: auto; }
+  .more { display: block; margin: 30px auto 0; padding: 12px 28px; border-radius: 999px; border: 1px solid var(--line); background: var(--ink-2); font-weight: 600; }
+  .more:hover { border-color: var(--tint); }
+  .empty { color: var(--muted); padding: 50px 0; font-size: 15px; }
+  .empty b { color: var(--text); }
+
+  .search-hero { padding: 20px var(--gutter) 0; }
+  .search-hero h2 { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 78; font-size: clamp(30px, 4.5vw, 54px); margin: 0 0 6px; line-height: 1; }
+  .search-hero h2 em { font-style: normal; color: var(--tint); }
+  .search-hero .n { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+  .search-hero + .filters { padding-top: 6px; }
+
+  /* ---------------- detalhes (modal) ---------------- */
+  .modal-bg { position: fixed; inset: 0; z-index: 60; background: rgba(4,5,8,.78); display: none; overflow-y: auto; padding: 5vh 16px; }
+  .modal-bg.open { display: block; animation: fade .2s ease-out; }
+  @keyframes fade { from { opacity: 0; } }
+  .modal { position: relative; width: min(860px, 100%); margin: 0 auto; background: var(--ink-2); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,.7); animation: rise .25s cubic-bezier(.2,.8,.2,1); }
+  @keyframes rise { from { transform: translateY(16px); opacity: 0; } }
+  .modal .head { position: relative; display: flex; gap: 28px; align-items: flex-end; padding: 60px 32px 28px; overflow: hidden; }
+  .modal .head .bg { position: absolute; inset: -50px; background-size: cover; background-position: center; filter: blur(12px) brightness(.5) saturate(1.3); }
+  .modal .head::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, var(--ink-2), transparent 80%); }
+  .modal .head > * { position: relative; z-index: 1; }
+  .modal .head .cover { width: 190px; flex: none; }
+  .modal h2 { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 80; font-size: clamp(28px, 4vw, 44px); line-height: .95; margin: 8px 0 12px; }
+  .modal .body { padding: 6px 32px 32px; }
+  .modal .file { font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-all; padding: 12px 14px; background: var(--ink); border-radius: 6px; }
+  .modal .note { color: var(--muted); font-size: 13px; margin-top: 12px; line-height: 1.5; }
+  .modal .close { position: absolute; right: 14px; top: 14px; z-index: 5; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgba(11,12,18,.75); }
+  .modal .close:hover { background: var(--ink); }
+  .modal h4 { margin: 28px 0 12px; font-size: 16px; }
+  .modal .mini { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
+  .modal .mini .card { width: auto; }
+  .modal .mini .below { font-size: 12px; }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 80; background: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 12px 18px; font-size: 14px; display: none; }
+  .error-box { margin: 40px var(--gutter); padding: 20px 22px; border: 1px solid #e0533d; border-radius: 10px; background: rgba(224,83,61,.08); line-height: 1.55; }
+  .error-box code { font-family: var(--mono); background: var(--ink-3); padding: 2px 6px; border-radius: 4px; }
+
+  @media (max-width: 720px) {
+    :root { --card-w: 118px; --gutter: 16px; }
+    .top { gap: 10px; padding: 10px var(--gutter); flex-wrap: wrap; }
+    .links { display: none; }
+    :root { --barh: 112px; }
+    .brand .word { font-size: 21px; }
+    .brand .mark { width: 28px; height: 28px; }
+    .hero { min-height: 0; padding-bottom: 46px; }
+    .hero-inner { flex-direction: column-reverse; align-items: flex-start; gap: 22px; }
+    .hero-cover { width: 150px; transform: none; }
+    .hero h1 { font-size: 46px; }
+    .dots { bottom: 18px; }
+    .ctile { width: 138px; height: 90px; }
+    .ctile .short { font-size: 28px; }
+    body { padding-bottom: 74px; }
+    /* o desfoque na barra do topo prende a tabbar (fixed) dentro dela; no celular usa fundo sólido */
+    html.scrolled .bar { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgb(11,12,18); }
+    .tabbar {
+      display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+      background: rgb(11,12,18);
+      border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    }
+    .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; font-size: 11px; font-weight: 600; color: var(--muted); }
+    .tab.on { color: var(--tint); }
+    .menu { position: fixed; left: 12px; right: 12px; top: auto; bottom: 80px; width: auto; }
+    .menu-wrap.open .menu { animation: none; box-shadow: 0 0 0 100vmax rgba(4,5,8,.6), 0 30px 70px -10px rgba(0,0,0,.75); }
+    .menu-grid { grid-template-columns: 1fr; }
+    .emu.wide { grid-column: auto; flex-direction: column; padding: 22px; gap: 14px; }
+    .emu.wide .emu-name { font-size: 38px; }
+    .logo { font-size: 20px; }
+    .search, .search:focus-within { order: 3; width: 100%; margin-left: 0; }
+    .search kbd { display: none; }
+    .top .icon-btn { margin-left: auto; }
+    .consoles { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .tile { aspect-ratio: 1 / 1; }
+    .tile .label { right: 14px; }
+    .tile .short { font-size: 34px; }
+    .tile .full { font-size: 10px; }
+    .fan { width: 42%; top: 30%; right: 6%; }
+    .folders { grid-template-columns: 1fr; }
+    .tile.sub { aspect-ratio: 21 / 9; }
+    .tile.sub .short { font-size: 24px; }
+    .tile.sub .fan { width: 24%; top: 50%; }
+    .billboard { min-height: 0; padding-top: 28px; }
+    .billboard .inner { flex-direction: column; align-items: flex-start; gap: 18px; }
+    .arrow { display: none; }
+    .card .quick { opacity: 1; transform: none; width: 30px; height: 30px; }
+    .modal .head { flex-direction: column; align-items: flex-start; padding: 50px 20px 20px; }
+    .modal .head .cover { width: 140px; }
+    .modal .body { padding: 6px 20px 24px; }
+    .sort { margin-left: 0; }
+  }
+  /* desempenho: o navegador pula o desenho das fileiras fora da tela */
+  .row { content-visibility: auto; contain-intrinsic-size: auto 330px; }
+
+  /* ---------------- franquias ---------------- */
+  .picker .eyebrow { margin-bottom: 10px; }
+  .tile.franq .short { font-size: 30px; }
+  .tile.franq .cons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+  .tile.franq .cons span { font-family: var(--mono); font-size: 10px; background: rgba(0,0,0,.35); border-radius: 3px; padding: 2px 5px; }
+  .fhero {
+    position: relative; overflow: hidden; isolation: isolate;
+    margin-top: calc(var(--barh) * -1); padding: calc(var(--barh) + 70px) var(--gutter) 54px;
+    min-height: min(72vh, 640px); display: flex; flex-direction: column; justify-content: flex-end;
+    background: radial-gradient(90% 80% at 85% 20%, color-mix(in srgb, var(--c) 45%, transparent), transparent 70%);
+  }
+  .fhero .mosaic {
+    position: absolute; z-index: -1; top: -30%; bottom: -30%; left: 32%; right: -12%;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; align-content: center;
+    transform: rotate(-10deg); opacity: .6;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 45%); mask-image: linear-gradient(to right, transparent, #000 45%);
+    animation: mosaic 50s ease-in-out infinite alternate; will-change: translate;
+  }
+  .fhero .mosaic .poster { box-shadow: 0 20px 40px -16px rgba(0,0,0,.9); }
+  .fhero .mosaic .poster:nth-child(even) { transform: translateY(40%); }
+  @keyframes mosaic { from { translate: 0 -6%; } to { translate: 0 6%; } }
+  .fhero::after { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(to top, var(--ink) 2%, transparent 40%), linear-gradient(to right, var(--ink) 10%, transparent 70%); }
+  .fhero .inner { position: relative; z-index: 1; max-width: 760px; }
+  .fhero .path { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .fhero .path button:hover { color: var(--text); }
+  .fhero .path b { color: var(--text); font-weight: 600; }
+  .fhero h1 {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: clamp(52px, 9.5vw, 140px); line-height: .86; letter-spacing: -.01em;
+    margin: 16px 0 14px; text-shadow: 0 10px 40px rgba(0,0,0,.6);
+    animation: rise .7s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .fhero .fmeta { font-family: var(--mono); font-size: 14px; color: #c9cddb; margin: 0; }
+  .fhero .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+
+  /* ---------------- sinopse ---------------- */
+  .syn-h { margin-top: 4px !important; }
+  .syn { margin: 0 0 18px; max-width: 70ch; }
+  .result .syn { margin: 16px 0 0; }
+  .syn-text { margin: 0; font-size: 15px; line-height: 1.6; color: #c9cddb; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .syn.open .syn-text { -webkit-line-clamp: unset; display: block; }
+  .syn-foot { display: flex; align-items: center; gap: 16px; margin-top: 8px; font-size: 13px; }
+  .syn-foot a, .syn-none a { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); }
+  .syn-foot a:hover, .syn-none a:hover { color: var(--text); }
+  .syn-foot svg, .syn-none svg { width: 13px; height: 13px; }
+  .syn-more { font-weight: 700; color: var(--tint); filter: brightness(1.3); }
+  .syn-none { margin: 0; font-size: 14px; color: var(--muted); }
+  .syn-none a { margin-left: 4px; }
+  .syn-skel { display: grid; gap: 9px; padding: 4px 0; }
+  .syn-skel i { display: block; height: 11px; border-radius: 6px; background: linear-gradient(90deg, var(--ink-3), #262a38, var(--ink-3)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+  .syn-skel i:nth-child(2) { width: 92%; }
+  .syn-skel i:nth-child(3) { width: 64%; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ---------------- sorteio ---------------- */
+  .raffle { padding: 5vh 0 40px; }
+  .raffle-head { padding: 0 var(--gutter); max-width: 900px; }
+  .raffle-head h1 {
+    font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 75; font-size: clamp(56px, 9vw, 128px); line-height: .86; margin: 10px 0 14px;
+    background: linear-gradient(100deg, var(--text) 30%, var(--tint) 75%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .raffle-head p { color: var(--muted); font-size: 16px; line-height: 1.55; margin: 0; max-width: 56ch; }
+  .raffle-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 24px var(--gutter) 0; }
+  .sel, .switch {
+    display: inline-flex; align-items: center; gap: 10px; height: 42px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--ink-2); font-size: 14px; color: #c9cddb; transition: border-color .2s;
+  }
+  .sel { position: relative; padding: 0 16px 0 18px; color: var(--muted); font-size: 13px; }
+  .sel:hover, .switch:hover { border-color: color-mix(in srgb, var(--tint) 60%, var(--line)); }
+  .sel select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; color: var(--text); font: 600 14px var(--body); padding: 0 4px 0 0; cursor: pointer; outline: none; max-width: 52vw; }
+  .sel select option { background: var(--ink-2); color: var(--text); }
+  .sel:focus-within { border-color: var(--tint); }
+  .switch { padding: 0 18px 0 12px; }
+  .switch i { position: relative; width: 32px; height: 20px; border-radius: 99px; background: var(--ink-3); border: 1px solid var(--line); transition: background .2s, border-color .2s; }
+  .switch i::after { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .22s cubic-bezier(.3,1.5,.5,1), background .2s; }
+  .switch.on { color: var(--text); }
+  .switch.on i { background: color-mix(in srgb, var(--tint) 30%, transparent); border-color: var(--tint); }
+  .switch.on i::after { transform: translateX(12px); background: var(--tint); }
+  .pool-n { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-left: 6px; }
+
+  .stage {
+    position: relative; margin-top: 36px; padding: 30px 0; overflow: hidden; min-height: 290px;
+    background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--tint) 9%, transparent) 50%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to right, transparent, #000 14%, #000 86%, transparent);
+  }
+  .reel { display: flex; gap: 14px; width: max-content; will-change: transform; transition: filter .5s; }
+  .reel.idle { animation: drift 90s linear infinite; }
+  @keyframes drift { to { transform: translateX(-50%); } }
+  .reel-card { width: 170px; flex: none; transition: opacity .5s, filter .5s, transform .5s cubic-bezier(.3,1.5,.5,1); }
+  .reel-card .poster { box-shadow: 0 14px 30px -14px rgba(0,0,0,.9); }
+  .stage.fast .reel { filter: blur(2.5px); }
+  .stage.done .reel-card { opacity: .25; filter: grayscale(.7); }
+  .stage.done .reel-card.win { opacity: 1; filter: none; transform: scale(1.1); }
+  .stage.done .reel-card.win .poster { box-shadow: 0 0 0 3px var(--tint), 0 24px 70px -12px var(--tint); }
+  .reel-empty { display: grid; place-items: center; min-height: 230px; color: var(--muted); font-size: 15px; }
+  .frame {
+    position: absolute; left: 50%; top: 18px; bottom: 18px; width: 194px; margin-left: -97px; z-index: 2; pointer-events: none;
+    border: 2px solid var(--tint); border-radius: 14px; box-shadow: 0 0 40px -8px var(--tint), inset 0 0 30px -12px var(--tint);
+    transition: border-color .5s, box-shadow .5s;
+  }
+  .stage.done .frame { opacity: 0; transition: opacity .4s .1s; }
+  .frame.tick { animation: tick .14s ease-out; }
+  @keyframes tick { 0% { transform: scale(1.035); } 100% { transform: none; } }
+  .pin { position: absolute; left: 50%; margin-left: -11px; width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; }
+  .pin.t { top: -2px; border-top: 14px solid var(--tint); }
+  .pin.b { bottom: -2px; border-bottom: 14px solid var(--tint); }
+  .burst { position: absolute; left: 50%; top: 50%; z-index: 4; pointer-events: none; }
+  .burst i { position: absolute; width: 8px; height: 14px; margin: -7px 0 0 -4px; border-radius: 2px; background: var(--k); animation: pop 1.3s cubic-bezier(.12,.75,.3,1) both; }
+  @keyframes pop {
+    0% { transform: translate(0, 0) rotate(0) scale(.4); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)) scale(1); opacity: 0; }
+  }
+
+  .raffle-cta { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 26px; }
+  .spin-btn {
+    display: inline-flex; align-items: center; gap: 14px; padding: 18px 42px 18px 34px; border-radius: 999px;
+    background: var(--tint); color: #0b0c12; font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 80; font-size: 24px; letter-spacing: .01em;
+    box-shadow: 0 16px 44px -14px var(--tint), inset 0 -3px 0 rgba(0,0,0,.18); transition: transform .15s, box-shadow .2s, background .5s;
+  }
+  .spin-btn:hover { transform: translateY(-2px); box-shadow: 0 22px 50px -14px var(--tint), inset 0 -3px 0 rgba(0,0,0,.18); }
+  .spin-btn:active { transform: scale(.97); }
+  .spin-btn[disabled] { opacity: .55; cursor: default; transform: none; }
+  .spin-btn.rolling { opacity: 1; }
+  .spin-btn.rolling svg { animation: roll .45s linear infinite; }
+  @keyframes roll { to { transform: rotate(360deg); } }
+  .raffle-cta .hint { font-size: 12px; color: var(--muted); }
+  .raffle-cta kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; background: var(--ink-2); }
+
+  .result {
+    display: flex; align-items: center; gap: 36px; margin: 34px var(--gutter) 0; padding: 28px 32px; border-radius: 16px;
+    background: linear-gradient(115deg, color-mix(in srgb, var(--c) 30%, var(--ink-2)) 0%, var(--ink-2) 65%);
+    border: 1px solid color-mix(in srgb, var(--c) 45%, var(--line)); scroll-margin-bottom: 96px;
+  }
+  .result.enter { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; }
+  .result.enter .result-cover { animation: flip .8s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(28px); } }
+  @keyframes flip { from { opacity: 0; transform: perspective(700px) rotateY(-70deg) scale(.8); } }
+  .result-cover { width: 200px; flex: none; transition: transform .2s; }
+  .result-cover:hover { transform: translateY(-3px); }
+  .result-cover .poster { box-shadow: 0 24px 50px -18px rgba(0,0,0,.9); }
+  .result-info { min-width: 0; }
+  .result h2 { font-family: var(--display); font-weight: 800; font-variation-settings: 'wdth' 78; font-size: clamp(34px, 4.6vw, 64px); line-height: .94; margin: 10px 0 12px; }
+  .result .meta { font-family: var(--mono); font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+  .pt-tag { font-family: var(--mono); font-size: 11px; font-weight: 500; background: #f4c542; color: #0b0c12; border-radius: 3px; padding: 2px 6px; }
+  .result .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 14px; }
+  @media (max-width: 720px) {
+    .raffle-opts { gap: 8px; }
+    .sel { width: 100%; justify-content: space-between; }
+    .sel select { flex: 1; max-width: none; }
+    .pool-n { width: 100%; margin: 4px 0 0; }
+    .stage { min-height: 230px; padding: 24px 0; -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent); }
+    .reel-card { width: 130px; }
+    .frame { width: 150px; margin-left: -75px; top: 14px; bottom: 14px; }
+    .spin-btn { font-size: 21px; padding: 16px 34px 16px 28px; }
+    .result { flex-direction: column; align-items: flex-start; gap: 20px; padding: 22px; }
+    .result-cover { width: 150px; }
+    .farrow { display: none; }
+    .tab { font-size: 10px; }
+    .fhero { min-height: 0; padding-top: calc(var(--barh) + 150px); padding-bottom: 36px; }
+    .fhero .mosaic { left: 0; right: -40%; top: -10%; bottom: auto; height: 120%; grid-template-columns: repeat(5, 1fr); gap: 10px; -webkit-mask-image: linear-gradient(to bottom, #000 20%, transparent 75%); mask-image: linear-gradient(to bottom, #000 20%, transparent 75%); }
+    .fhero::after { background: linear-gradient(to top, var(--ink) 15%, transparent 70%); }
+    .tile.franq .short { font-size: 24px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div id="app"></div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+  // Mostra qualquer erro de JavaScript direto na tela (facilita o diagnóstico).
+  window.onerror = function (msg, src, line, col) {
+    var el = document.getElementById('app');
+    if (el) el.innerHTML = '<div class="error-box"><strong>Erro na página:</strong><br>' +
+      String(msg).replace(/</g, '&lt;') + '<br><small>linha ' + line + ':' + col + '</small></div>';
+  };
+</script>
+
+<script>
+(function () {
+
+/* ============================================================
+   Consoles: cor, sigla e sistema do libretro (para as capas)
+   A chave é o nome da pasta "normalizado": minúsculas, só letras e números,
+   sem o que estiver entre parênteses.
+   ============================================================ */
+var CONSOLES = [
+  { keys: ['supernintendo','snes','superfamicom','sfc','supernes'], short: 'SNES', color: '#6b4fd8', sys: 'Nintendo - Super Nintendo Entertainment System' },
+  { keys: ['nintendofamicom','nes','famicom','nintendinho','nintendo'], short: 'NES', color: '#c62d2d', sys: 'Nintendo - Nintendo Entertainment System' },
+  { keys: ['nintendo64','n64'], short: 'N64', color: '#1f9d55', sys: 'Nintendo - Nintendo 64' },
+  { keys: ['gameboyadvance','gba'], short: 'GBA', color: '#4b3bbf', sys: 'Nintendo - Game Boy Advance' },
+  { keys: ['gameboycolor','gbc'], short: 'GBC', color: '#b8326b', sys: 'Nintendo - Game Boy Color' },
+  { keys: ['gameboy','gb'], short: 'GB', color: '#7a9a1a', sys: 'Nintendo - Game Boy' },
+  { keys: ['nintendods','nds','ds'], short: 'DS', color: '#7d8796', sys: 'Nintendo - Nintendo DS' },
+  { keys: ['nintendo3ds','3ds'], short: '3DS', color: '#d02a3c', sys: 'Nintendo - Nintendo 3DS' },
+  { keys: ['nintendogamecube','gamecube','gc','ngc'], short: 'GC', color: '#5b47b0', sys: 'Nintendo - GameCube' },
+  { keys: ['nintendowii','wii'], short: 'Wii', color: '#2ba8e0', sys: 'Nintendo - Wii' },
+  { keys: ['switch2','nintendoswitch2'], short: 'NS2', color: '#e4002b', sys: null },
+  { keys: ['switch','nintendoswitch'], short: 'Switch', color: '#e60012', sys: null },
+  { keys: ['megadrive','genesis','segagenesis','md'], short: 'MD', color: '#d7261e', sys: 'Sega - Mega Drive - Genesis' },
+  { keys: ['mastersystem','sms'], short: 'SMS', color: '#b5121b', sys: 'Sega - Master System - Mark III' },
+  { keys: ['gamegear','gg'], short: 'GG', color: '#3a3f4b', sys: 'Sega - Game Gear' },
+  { keys: ['segacd','megacd'], short: 'SCD', color: '#3e4c9a', sys: 'Sega - Mega-CD - Sega CD' },
+  { keys: ['saturn','segasaturn'], short: 'SAT', color: '#4a5a8a', sys: 'Sega - Saturn' },
+  { keys: ['dreamcast','dc'], short: 'DC', color: '#f07a1a', sys: 'Sega - Dreamcast' },
+  { keys: ['ps1','psx','playstation','playstation1','psone'], short: 'PS1', color: '#8a94a8', sys: 'Sony - PlayStation' },
+  { keys: ['ps2','playstation2'], short: 'PS2', color: '#2f55c4', sys: 'Sony - PlayStation 2' },
+  { keys: ['ps3','playstation3'], short: 'PS3', color: '#4c5a73', sys: 'Sony - PlayStation 3' },
+  { keys: ['psp','playstationportable'], short: 'PSP', color: '#3e4c6e', sys: 'Sony - PlayStation Portable' },
+  { keys: ['psvita','vita'], short: 'Vita', color: '#1f6fe0', sys: 'Sony - PlayStation Vita' },
+  { keys: ['atari2600','atari','2600'], short: '2600', color: '#b8692e', sys: 'Atari - 2600' },
+  { keys: ['atari5200','5200'], short: '5200', color: '#9e5a2a', sys: 'Atari - 5200' },
+  { keys: ['atari7800','7800'], short: '7800', color: '#a8502a', sys: 'Atari - 7800' },
+  { keys: ['neogeo'], short: 'NEO', color: '#c9a227', sys: 'FBNeo - Arcade Games' },
+  { keys: ['arcade','fba','fbneo','cps1','cps2','cps3'], short: 'ARC', color: '#d9862b', sys: 'FBNeo - Arcade Games' },
+  { keys: ['mame'], short: 'MAME', color: '#5a6b7d', sys: 'MAME' },
+  { keys: ['ps4','playstation4'], short: 'PS4', color: '#1d3f9a', sys: null },
+  { keys: ['ps5','playstation5'], short: 'PS5', color: '#5b6c8f', sys: null },
+  { keys: ['nintendowiiu','wiiu'], short: 'Wii U', color: '#0096c8', sys: null },
+  { keys: ['xbox'], short: 'XBOX', color: '#107c10', sys: 'Microsoft - Xbox' },
+  { keys: ['xbox360'], short: 'X360', color: '#4c9a2a', sys: null },
+  { keys: ['neogeopocketcolor','ngpc','neogeopocket'], short: 'NGP', color: '#2f7f8f', sys: 'SNK - Neo Geo Pocket Color' },
+  { keys: ['pcengine','pce','turbografx','turbografx16','tg16'], short: 'PCE', color: '#c2453b', sys: 'NEC - PC Engine - TurboGrafx 16' },
+  { keys: ['msx'], short: 'MSX', color: '#3f6fb5', sys: 'Microsoft - MSX' }
+];
+var HOME_TINT = '#e8a33d';
+
+function norm(s) {
+  return String(s).toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '').replace(/[^a-z0-9]/g, '');
+}
+function consoleInfo(folderName) {
+  // ignora o que está entre parênteses e marcas de tradução ("PT-BR", "PTBR")
+  var clean = folderName.replace(/\([^)]*\)/g, ' ').replace(/\bpt[\s_-]?br\b/ig, ' ').trim();
+  var base = norm(clean);
+  for (var i = 0; i < CONSOLES.length; i++) if (CONSOLES[i].keys.indexOf(base) >= 0) return CONSOLES[i];
+  var hue = hash(folderName) % 360;
+  // sem cadastro: uma palavra vira até 5 letras ("PS4"); várias viram iniciais ("Neo Geo CD" -> "NGC")
+  var words = clean.split(/\s+/).filter(Boolean);
+  var short = words.length === 1 ? words[0].slice(0, 5) : words.map(function (w) { return /\d/.test(w) ? w : w[0]; }).join('').slice(0, 5);
+  return { short: (short || '?').toUpperCase(), color: 'hsl(' + hue + ' 55% 45%)', sys: null };
+}
+function isPtBr(s) { return /pt[\s_-]?br|brazil|brasil|portugu|traduz/i.test(s); }
+
+/* ============================================================
+   Estado
+   ============================================================ */
+var state = {
+  favs: {}, seed: Math.floor(Math.random() * 1e6), heroIdx: 0, heroPicks: null, listSort: 'added',
+  consoles: [],          // [{id, name, info, ptbr, games: null | [...]}]
+  byId: {},
+  byKey: {},
+  all: [],
+  view: { type: 'home' }, // home | console | search
+  sort: 'az',
+  gridLimit: 120,
+  filters: [],           // ids de console selecionados na busca
+  raffle: { console: '', pt: false, fav: false, spinning: false, winner: null, reel: null, offset: 0, history: [] },
+  q: '',
+  featured: {}
+};
+function $(s) { return document.querySelector(s); }
+var app = $('#app');
+
+/* ---------- ponte com o Apps Script (ou dados de exemplo fora dele) ---------- */
+var IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+var API_URL = 'https://script.google.com/macros/s/SEU_ID_AQUI/exec';
+
+function call(fn, a, b) {
+  if (!API_URL) { // sem URL configurada, usa os dados de exemplo
+    return new Promise(function (res) { setTimeout(function () { res(MOCK[fn](a, b)); }, 150 + Math.random() * 500); });
+  }
+  var url = API_URL + '?fn=' + encodeURIComponent(fn);
+  if (a !== undefined) url += '&a=' + encodeURIComponent(a);
+  if (b !== undefined) url += '&b=' + encodeURIComponent(b);
+  var ctl = new AbortController();
+  var t = setTimeout(function () { ctl.abort(); }, 120000);
+  return fetch(url, { signal: ctl.signal })
+    .then(function (r) { clearTimeout(t); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (j) { if (j && j.error) throw new Error(j.error); return j; });
+}
+
+/* ---------- helpers ---------- */
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function hash(s) { var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+function fmtSize(b) {
+  if (!b) return '';
+  var u = ['B', 'KB', 'MB', 'GB'], i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (b < 10 && i ? b.toFixed(1).replace('.', ',') : Math.round(b)) + ' ' + u[i];
+}
+function fmtNum(n) { return n.toLocaleString('pt-BR'); }
+function plural(n, one, many) { return fmtNum(n) + ' ' + (n === 1 ? one : many); }
+function fmtDate(t) { return new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+function parseName(file, isFolder) {
+  var base = isFolder ? file : file.replace(/\.[a-z0-9]{1,5}$/i, '');
+  var m = file.match(/\.([a-z0-9]{1,5})$/i);
+  var ext = isFolder ? 'pasta' : (m ? m[1].toLowerCase() : '');
+  var tags = [], re = /[\(\[]([^\)\]]+)[\)\]]/g, t;
+  while ((t = re.exec(base))) tags.push(t[1]);
+  var title = base.replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim() || base;
+  // "Legend of Zelda, The - ..." -> "The Legend of Zelda - ..."
+  title = title.replace(/^(.+?), (The|A|An)( - |$)/, '$2 $1$3');
+  return { base: base, ext: ext, tags: tags, title: title };
+}
+
+var ICON = {
+  down: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg>',
+  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>',
+  search: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  refresh: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>',
+  left: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>',
+  right: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg>',
+  close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  stack: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="12" height="15" rx="2"/><path d="M5 6.5v12A2.5 2.5 0 0 0 7.5 21H16"/></svg>',
+  dice: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h.01M15 15h.01M15 9h.01M9 15h.01"/></svg>',
+  heart: '<svg class="i-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linejoin="round"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>' +
+         '<svg class="i-on" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></svg>',
+  home: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/></svg>',
+  grid: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  pad: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-6.3 2.1L14 15h-4l-.7.6A3.5 3.5 0 0 1 3 13.5V12a4 4 0 0 1 4-4z"/><path d="M8 11v3M6.5 12.5h3M15.5 11.5h.01M17.5 13.5h.01"/></svg>',
+  chev: '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  ext: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>',
+  folder: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  drive: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>'
+};
+
+/* ---------- logo: cartucho com um "A" de seta, na cor do console ---------- */
+function logoHTML() {
+  return '<span class="brand">' +
+    '<svg class="mark" viewBox="0 0 40 40" aria-hidden="true">' +
+      '<defs><linearGradient id="arcLogoG" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" style="stop-color:var(--tint)"/>' +
+        '<stop offset="1" style="stop-color:color-mix(in srgb, var(--tint) 40%, #000)"/>' +
+      '</linearGradient></defs>' +
+      '<path class="body" d="M8 3h19.5l7.5 7.5V35a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="url(#arcLogoG)"/>' +
+      '<path d="M27.5 3v5a2.5 2.5 0 0 0 2.5 2.5h5" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1.4"/>' +
+      '<path d="M10 7h11M10 10h11" stroke="rgba(0,0,0,.3)" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<rect x="9" y="14" width="22" height="20.5" rx="3" fill="#0b0c12"/>' +
+      '<path d="M14.2 30.6 20 18.2l5.8 12.4" fill="none" stroke="var(--tint)" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<rect x="17.6" y="25.2" width="4.8" height="2.6" rx="1.3" fill="#fff"/>' +
+    '</svg>' +
+    '<span class="word">ARC<span class="acc">Á</span>DIA</span>' +
+  '</span>';
+}
+
+/* ---------- favoritos (Minha lista), guardados no navegador ---------- */
+var FAV_KEY = 'arc-favoritos-v1';
+function loadFavs() {
+  state.favs = {};
+  try { JSON.parse(localStorage.getItem(FAV_KEY) || '[]').forEach(function (f) { state.favs[f.k] = f.t; }); } catch (e) { /* sem acesso ao armazenamento */ }
+}
+function saveFavs() {
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(Object.keys(state.favs).map(function (k) { return { k: k, t: state.favs[k] }; }))); } catch (e) { /* sem acesso */ }
+}
+function isFav(k) { return !!state.favs[k]; }
+function favCount() { return Object.keys(state.favs).length; }
+function favBtn(g, variant) {
+  var on = isFav(g.key);
+  if (variant === 'btn') {
+    return '<button class="btn btn-soft favb ' + (on ? 'on' : '') + '" data-fav="' + esc(g.key) + '" aria-pressed="' + on + '">' +
+      ICON.heart + '<span class="lbl">' + (on ? 'Na minha lista' : 'Minha lista') + '</span></button>';
+  }
+  return '<button class="fav ' + (on ? 'on' : '') + '" data-fav="' + esc(g.key) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Tirar da minha lista' : 'Pôr na minha lista') + '" title="' + (on ? 'Tirar da minha lista' : 'Pôr na minha lista') + '">' + ICON.heart + '</button>';
+}
+function toggleFav(k) {
+  var on = !isFav(k);
+  if (on) state.favs[k] = Date.now(); else delete state.favs[k];
+  saveFavs();
+  document.querySelectorAll('[data-fav]').forEach(function (el) {
+    if (el.getAttribute('data-fav') !== k) return;
+    el.classList.toggle('on', on);
+    el.setAttribute('aria-pressed', on);
+    var lbl = el.querySelector('.lbl'); if (lbl) lbl.textContent = on ? 'Na minha lista' : 'Minha lista';
+    if (!lbl) { el.setAttribute('aria-label', on ? 'Tirar da minha lista' : 'Pôr na minha lista'); el.title = el.getAttribute('aria-label'); }
+    el.classList.remove('pop'); void el.offsetWidth; if (on) el.classList.add('pop');
+  });
+  document.querySelectorAll('.count[data-favcount]').forEach(function (el) { el.textContent = favCount() || ''; });
+  toast(on ? 'Adicionado à Minha lista' : 'Removido da Minha lista');
+  if (state.view.type === 'home' || state.view.type === 'mylist') refreshKeepScroll();
+}
+function refreshKeepScroll() { var y = window.scrollY; render(); window.scrollTo(0, y); }
+
+/* ---------- links ---------- */
+/* ---------- capas: busca por semelhança no acervo do libretro ----------
+   Para cada console, baixamos uma vez a lista de nomes das capas (API do GitHub)
+   e guardamos no navegador. Aí comparamos os nomes "simplificados":
+   sem maiúsculas, acentos, pontuação, região, "The"/"A" e sem o "I" final. */
+var COVER_IDX = {};          // sistema -> { map: {chave: [nomes]}, keys: [chaves ordenadas] }
+var COVER_CACHE_DAYS = 14;
+
+function repoName(sys) { return sys.replace(/ /g, '_'); }
+function coverKey(s) {
+  s = String(s).replace(/\.png$/i, '').replace(/\s*[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/&/g, ' and ');
+  s = s.toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '').replace(/_/g, ' ');
+  s = s.replace(/\b(the|a|an)\b/g, ' ');
+  return s.replace(/[^a-z0-9]/g, '');
+}
+function regionScore(name) {
+  var s = /\(USA/.test(name) ? 0 : /\(World/.test(name) ? 1 : /\(Brazil/.test(name) ? 2 : /Europe/.test(name) ? 3 : /Japan/.test(name) ? 4 : 5;
+  if (/\((Beta|Proto|Demo|Sample|Pirate|Unl|Aftermarket)/i.test(name)) s += 10;
+  if (/Switch Online|Virtual Console|Collection/i.test(name)) s += 1;
+  return s;
+}
+function buildCoverIdx(names) {
+  var map = Object.create(null), keys = [];   // sem protótipo: nomes como "constructor" não quebram
+  names.forEach(function (n) {
+    var k = coverKey(n);
+    if (!k) return;
+    if (!map[k]) { map[k] = []; keys.push(k); }
+    map[k].push(n.replace(/\.png$/i, ''));
+  });
+  keys.sort();
+  return { map: map, keys: keys };
+}
+function bestOf(list) { return list.slice().sort(function (a, b) { return regionScore(a) - regionScore(b) || a.length - b.length; })[0]; }
+function findCover(g) {
+  if (g._cover !== undefined) return g._cover;
+  var idx = COVER_IDX[g.sys];
+  if (!idx || !idx.map) return null;               // lista ainda não carregou
+  var mem = matchMem(g.sys);
+  if (Object.prototype.hasOwnProperty.call(mem, g.base)) return (g._cover = mem[g.base] || null);
+  var clean = g.base.replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').trim();
+  var tries = [coverKey(clean)];
+  if (/\s(I|1)$/i.test(clean)) tries.push(coverKey(clean.replace(/\s(I|1)$/i, '')));
+  var hit = null, i;
+  for (i = 0; i < tries.length && !hit; i++) if (idx.map[tries[i]]) hit = bestOf(idx.map[tries[i]]);
+  // Por palavras: todas as palavras do seu nome precisam aparecer no nome do acervo
+  // (tolerando 1 letra de diferença em palavras longas). Ganha o que tiver menos palavras sobrando.
+  if (!hit) hit = wordMatch(idx, clean);
+  g._cover = hit;
+  mem[g.base] = hit || '';
+  saveMatchMem(g.sys);
+  return hit;
+}
+/* Guarda no navegador qual capa casou com cada nome, pra não refazer a busca na próxima visita. */
+var MATCH_MEM = {}, matchDirty = {}, matchTimer;
+function matchMem(sys) {
+  if (!MATCH_MEM[sys]) {
+    try { MATCH_MEM[sys] = JSON.parse(localStorage.getItem('arc-match-v1:' + sys) || '{}'); } catch (e) { MATCH_MEM[sys] = {}; }
+  }
+  return MATCH_MEM[sys];
+}
+function saveMatchMem(sys) {
+  matchDirty[sys] = 1;
+  clearTimeout(matchTimer);
+  matchTimer = setTimeout(function () {
+    Object.keys(matchDirty).forEach(function (k) {
+      try { localStorage.setItem('arc-match-v1:' + k, JSON.stringify(MATCH_MEM[k])); } catch (e) { /* sem espaço */ }
+    });
+    matchDirty = {};
+  }, 1500);
+}
+function coverWords(s) {
+  s = String(s).replace(/\.png$/i, '').replace(/\s*[\(\[][^\)\]]*[\)\]]/g, ' ').replace(/&/g, ' and ').replace(/'/g, '');
+  s = s.toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '');
+  return s.split(/[^a-z0-9]+/).filter(function (w) { return w && w !== 'the' && w !== 'a' && w !== 'an'; });
+}
+function nearWord(a, b) {
+  if (a === b) return true;
+  if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
+  var i = 0, j = 0, edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++edits > 1) return false;
+    if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+}
+function wordMatch(idx, name) {
+  var want = coverWords(name);
+  if (!want.length) return null;
+  if (!idx.words) {
+    idx.words = idx.keys.map(function (k) { var n = idx.map[k][0]; return { key: k, w: coverWords(n) }; });
+    idx.byWord = Object.create(null);
+    idx.words.forEach(function (e, i) { e.w.forEach(function (w) { (idx.byWord[w] || (idx.byWord[w] = [])).push(i); }); });
+  }
+  // candidatos: nomes que contêm a palavra mais rara do seu nome; se nenhuma existir igual, varre tudo
+  var pool = null;
+  want.forEach(function (w) { var l = idx.byWord[w]; if (l && (!pool || l.length < pool.length)) pool = l; });
+  var cands = pool ? pool.map(function (i) { return idx.words[i]; }) : idx.words;
+  var best = null, bestExtra = 99;
+  cands.forEach(function (e) {
+    if (e.w.length - want.length >= bestExtra || e.w.length < want.length) return;
+    var used = [];
+    for (var i = 0; i < want.length; i++) {
+      var ok = false;
+      for (var j = 0; j < e.w.length; j++) if (used.indexOf(j) < 0 && nearWord(want[i], e.w[j])) { used.push(j); ok = true; break; }
+      if (!ok) return;
+    }
+    var extra = e.w.length - want.length;
+    if (extra < bestExtra) { bestExtra = extra; best = e.key; }
+  });
+  return best && bestExtra <= 4 ? bestOf(idx.map[best]) : null;
+}
+function readCoverCache(sys) {
+  try {
+    var raw = localStorage.getItem('arc-capas-v1:' + sys);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.t > COVER_CACHE_DAYS * 864e5) return null;
+    return obj.names.split('\n');
+  } catch (e) { return null; }
+}
+function writeCoverCache(sys, names) {
+  try { localStorage.setItem('arc-capas-v1:' + sys, JSON.stringify({ t: Date.now(), names: names.join('\n') })); } catch (e) { /* sem espaço: segue sem cache */ }
+}
+function fetchCoverNames(sys) {
+  var api = 'https://api.github.com/repos/libretro-thumbnails/' + repoName(sys) + '/git/trees/';
+  return fetch(api + 'master').then(function (r) { if (!r.ok) throw new Error('GitHub ' + r.status); return r.json(); })
+    .then(function (root) {
+      var bx = root.tree.filter(function (e) { return e.path === 'Named_Boxarts'; })[0];
+      if (!bx) return [];
+      return fetch(api + bx.sha).then(function (r) { if (!r.ok) throw new Error('GitHub ' + r.status); return r.json(); });
+    })
+    .then(function (sub) { return (sub.tree || []).map(function (e) { return e.path; }).filter(function (p) { return /\.png$/i.test(p); }); });
+}
+function loadCoverIndexes() {
+  var systems = [];
+  state.consoles.forEach(function (c) { if (c.info.sys && systems.indexOf(c.info.sys) < 0 && !COVER_IDX[c.info.sys]) systems.push(c.info.sys); });
+  var queue = [];
+  systems.forEach(function (sys) {
+    var cached = readCoverCache(sys);
+    if (cached) COVER_IDX[sys] = buildCoverIdx(cached);
+    else { COVER_IDX[sys] = 'loading'; queue.push(sys); }
+  });
+  // baixa no máximo 3 listas ao mesmo tempo
+  function next() {
+    var sys = queue.shift();
+    if (!sys) return;
+    fetchCoverNames(sys).then(function (names) {
+      writeCoverCache(sys, names);
+      MATCH_MEM[sys] = {}; try { localStorage.removeItem('arc-match-v1:' + sys); } catch (e) { /* ok */ }
+      COVER_IDX[sys] = buildCoverIdx(names);
+      state.all.forEach(function (g) { if (g.sys === sys) delete g._cover; });
+      refreshCovers();
+    }).catch(function (e) { console.warn('capas', sys, e); COVER_IDX[sys] = null; }).then(next);
+  }
+  next(); next(); next();
+}
+var coverTimer;
+function refreshCovers() {
+  clearTimeout(coverTimer);
+  coverTimer = setTimeout(function () { var y = window.scrollY; render(); window.scrollTo(0, y); }, 250);
+}
+
+/* As capas originais são PNGs grandes (centenas de KB cada). Passamos pelo wsrv.nl,
+   um redimensionador público e gratuito, que devolve WebP do tamanho certo (~10–20 KB).
+   Se ele falhar, a imagem cai no PNG original. */
+var IMG_PROXY = 'https://wsrv.nl/?url=';
+function sized(raw, w, extra) { return IMG_PROXY + encodeURIComponent(raw) + '&w=' + w + '&output=webp&q=72' + (extra || ''); }
+// w: largura em pixels (padrão 320, bom pra cards). blur: true pra fundos desfocados (imagem minúscula).
+function coverUrls(g, w, blur) {
+  if (!g.sys) return [];
+  var idx = COVER_IDX[g.sys];
+  if (idx === 'loading') return [];                // espera a lista: evita disparar dezenas de tentativas que dão 404
+  var repo = 'https://raw.githubusercontent.com/libretro-thumbnails/' + repoName(g.sys) + '/master/Named_Boxarts/';
+  var raw = function (n) { return repo + encodeURIComponent(n.replace(/[&*\/:\x60<>?\\|"]/g, '_')) + '.png'; };
+  w = w || 320;
+  var px = function (n) { return blur ? sized(raw(n), 64, '&blur=2') : sized(raw(n), w); };
+  if (idx && idx.map) {
+    // Lista carregada: usa só o que existe de verdade no acervo (versão leve, depois a original).
+    var hit = findCover(g);
+    return hit ? (blur ? [px(hit)] : [px(hit), raw(hit)]) : [];
+  }
+  // Lista indisponível: tenta o nome exato e variações com região (só versões leves).
+  var clean = g.base.replace(/\s*[\(\[][^\)\]]*[\)\]]/g, '').trim();
+  var seen = {};
+  return [g.base, clean + ' (USA)', clean + ' (World)', clean + ' (Europe)', clean + ' (Japan)']
+    .filter(function (n) { if (seen[n]) return false; seen[n] = 1; return true; }).map(px);
+}
+function downloadUrl(g) { return g.folder ? 'https://drive.google.com/drive/folders/' + g.id : 'https://drive.google.com/uc?export=download&id=' + g.id; }
+function driveUrl(g) { return g.folder ? 'https://drive.google.com/drive/folders/' + g.id : 'https://drive.google.com/file/d/' + g.id + '/view'; }
+
+/* ============================================================
+   Peças de interface
+   ============================================================ */
+function posterHTML(g, badge, w) {
+  // Sem capa: gradiente na cor do console, com uma variação de tom por jogo.
+  var c = g.color, h = hash(g.title), shade = 'hsl(' + (h % 360) + ' 60% ' + (30 + h % 25) + '%)';
+  var ph = '<div class="ph" style="background:linear-gradient(165deg, color-mix(in srgb,' + c + ' 72%, ' + shade + ') 0%, color-mix(in srgb,' + c + ' 26%, #0b0c12) 100%)">' +
+    '<small>' + esc(g.short) + '</small>' + esc(g.title) + '</div>';
+  var urls = coverUrls(g, w);
+  var img = urls.length ? '<img loading="lazy" decoding="async" alt="" data-urls="' + esc(JSON.stringify(urls.slice(1))) + '" src="' + esc(urls[0]) + '" onerror="nextCover(this)">' : '';
+  return '<div class="poster">' + ph + img + (badge ? '<span class="badge">' + esc(g.ext) + '</span>' : '') + (g.pt ? '<span class="flag">PT-BR</span>' : '') + '</div>';
+}
+window.nextCover = function (img) {
+  var rest = JSON.parse(img.getAttribute('data-urls') || '[]');
+  if (rest.length) { img.setAttribute('data-urls', JSON.stringify(rest.slice(1))); img.src = rest[0]; }
+  else img.parentNode && img.parentNode.removeChild(img);
+};
+
+function cardHTML(g) {
+  return '<div class="card">' +
+    '<button class="hit" data-open="' + esc(g.key) + '" aria-label="' + esc(g.title + ', ' + g.consoleName) + '">' +
+      posterHTML(g, false) +
+    '</button>' +
+    '<div class="shade"></div>' +
+    '<div class="info"><div class="t">' + esc(g.title) + '</div><div class="s">' + esc([g.short].concat(g.path).join(' / ') + ' · ' + fmtSize(g.size)) + '</div></div>' +
+    '<a class="quick" href="' + downloadUrl(g) + '" target="_blank" rel="noopener" title="' + (g.folder ? 'Abrir pasta' : 'Baixar') + '" aria-label="Baixar ' + esc(g.title) + '">' + ICON.down + '</a>' +
+    favBtn(g, 'card') +
+    '<div class="below">' + esc(g.title) + '</div>' +
+  '</div>';
+}
+function skeletons(n) { var s = ''; for (var i = 0; i < n; i++) s += '<div class="card skeleton"><div class="poster"></div><div class="below">&nbsp;</div></div>'; return s; }
+
+function rowHTML(title, list, count, moreAttr) {
+  if (list && !list.length) return '';
+  return '<section class="row">' +
+    '<div class="row-head"><h3>' + esc(title) + '</h3>' + (count != null ? '<span class="n">' + fmtNum(count) + '</span>' : '') +
+      (moreAttr ? '<button class="see-all" ' + moreAttr + '>Ver tudo' + ICON.right.replace('width="22" height="22"', 'width="16" height="16"') + '</button>' : '') + '</div>' +
+    '<div class="rail-wrap">' +
+      '<button class="arrow l" data-dir="-1" aria-label="Voltar">' + ICON.left + '</button>' +
+      '<div class="rail">' + (list ? list.map(cardHTML).join('') : skeletons(8)) + '</div>' +
+      '<button class="arrow r" data-dir="1" aria-label="Avançar">' + ICON.right + '</button>' +
+    '</div>' +
+  '</section>';
+}
+
+function topHTML() {
+  var v = state.view, t = v.type;
+  var favN = favCount() || '';
+  return '<header class="top">' +
+    '<button class="logo" data-home aria-label="Arcádia, início">' + logoHTML() + '</button>' +
+    '<nav class="links" aria-label="Principal">' +
+      '<button class="nav-link ' + (t === 'home' ? 'on' : '') + '" data-home>' + ICON.home + 'Início</button>' +
+      '<button class="nav-link ' + (t === 'consoles' || t === 'console' ? 'on' : '') + '" data-nav="consoles">' + ICON.grid + 'Consoles</button>' +
+      '<button class="nav-link ' + (t === 'franchises' || t === 'franchise' ? 'on' : '') + '" data-nav="franchises">' + ICON.stack + 'Franquias</button>' +
+      '<button class="nav-link ' + (t === 'mylist' ? 'on' : '') + '" data-nav="mylist">' + ICON.heart.split('</svg>')[0] + '</svg>Minha lista<span class="count" data-favcount>' + favN + '</span></button>' +
+      '<button class="nav-link ' + (t === 'raffle' ? 'on' : '') + '" data-nav="raffle">' + ICON.dice + 'Sortear</button>' +
+      '<button class="nav-link ' + (t === 'emus' ? 'on' : '') + '" data-nav="emus">' + ICON.pad + 'Emuladores</button>' +
+    '</nav>' +
+    '<label class="search">' + ICON.search +
+      '<input id="q" type="search" placeholder="Buscar em todos os consoles" autocomplete="off" value="' + esc(state.q) + '" aria-label="Buscar jogo">' +
+      '<kbd>/</kbd>' +
+    '</label>' +
+    '<button class="icon-btn" id="refresh" title="Recarregar a lista do Drive" aria-label="Recarregar a lista do Drive">' + ICON.refresh + '</button>' +
+  '</header>' +
+  '<nav class="tabbar" aria-label="Principal">' +
+    '<button class="tab ' + (t === 'home' ? 'on' : '') + '" data-home>' + ICON.home + 'Início</button>' +
+    '<button class="tab ' + (t === 'consoles' || t === 'console' ? 'on' : '') + '" data-nav="consoles">' + ICON.grid + 'Consoles</button>' +
+    '<button class="tab ' + (t === 'franchises' || t === 'franchise' ? 'on' : '') + '" data-nav="franchises">' + ICON.stack + 'Franquias</button>' +
+    '<button class="tab ' + (t === 'raffle' ? 'on' : '') + '" data-nav="raffle">' + ICON.dice + 'Sortear</button>' +
+    '<button class="tab ' + (t === 'mylist' ? 'on' : '') + '" data-nav="mylist">' + ICON.heart.split('</svg>')[0] + '</svg>Minha lista<span class="count" data-favcount>' + favN + '</span></button>' +
+    '<button class="tab ' + (t === 'emus' ? 'on' : '') + '" data-nav="emus">' + ICON.pad + 'Emuladores</button>' +
+  '</nav>';
+}
+
+function barHTML(extra) { return '<div class="bar">' + topHTML() + extra + '</div>'; }
+
+function fwrapHTML(nav) {
+  var sm = function (s) { return s.replace('width="22" height="22"', 'width="18" height="18"'); };
+  return '<div class="fwrap">' +
+    '<button class="farrow l" data-fscroll="-1" aria-label="Ver consoles anteriores" tabindex="-1">' + sm(ICON.left) + '</button>' +
+    nav +
+    '<button class="farrow r" data-fscroll="1" aria-label="Ver mais consoles" tabindex="-1">' + sm(ICON.right) + '</button>' +
+  '</div>';
+}
+// liga as setas/esmaecido de cada faixa conforme dá pra rolar pra cada lado
+function updateFilterEdges(centerOn) {
+  document.querySelectorAll('.fwrap').forEach(function (w) {
+    var f = w.querySelector('.filters');
+    if (centerOn) {
+      var on = f.querySelector('.chip.on:not([data-filter-clear]):not([data-emu-filter=""])');
+      if (on && (on.offsetLeft + on.offsetWidth > f.clientWidth - 60)) {
+        f.style.scrollBehavior = 'auto';
+        f.scrollLeft = on.offsetLeft - f.clientWidth / 2 + on.offsetWidth / 2;
+        f.style.scrollBehavior = '';
+      }
+    }
+    w.classList.toggle('l', f.scrollLeft > 4);
+    w.classList.toggle('r', f.scrollLeft + f.clientWidth < f.scrollWidth - 4);
+  });
+}
+document.addEventListener('scroll', function (e) {
+  if (e.target.classList && e.target.classList.contains('filters')) updateFilterEdges();
+}, true);
+window.addEventListener('resize', function () { updateFilterEdges(); });
+// roda do mouse (vertical) rola a faixa de lado no computador
+document.addEventListener('wheel', function (e) {
+  var f = e.target.closest && e.target.closest('.filters');
+  if (!f || Math.abs(e.deltaX) > Math.abs(e.deltaY) || f.scrollWidth <= f.clientWidth) return;
+  var max = f.scrollWidth - f.clientWidth;
+  if ((e.deltaY < 0 && f.scrollLeft <= 0) || (e.deltaY > 0 && f.scrollLeft >= max)) return;
+  e.preventDefault();
+  f.style.scrollBehavior = 'auto'; f.scrollLeft += e.deltaY; f.style.scrollBehavior = '';
+}, { passive: false });
+
+function filtersHTML(mode, counts) {
+  // mode 'nav': cada chip leva para a página do console. mode 'filter': chips ligam/desligam filtros da busca.
+  var all = mode === 'nav'
+    ? '<button class="chip" data-nav="consoles"><span class="dot" style="--c:' + HOME_TINT + '"></span>Todos os consoles</button>'
+    : '<button class="chip ' + (state.filters.length ? '' : 'on') + '" data-filter-clear>Todos<span class="n">' + fmtNum(counts.total) + '</span></button>';
+  return fwrapHTML('<nav class="filters" aria-label="Consoles">' + all + state.consoles.map(function (c) {
+    var on = mode === 'nav' ? state.view.id === c.id : state.filters.indexOf(c.id) >= 0;
+    var n = mode === 'nav' ? (c.games ? c.games.length : null) : (counts.by[c.id] || 0);
+    if (mode === 'filter' && !n && !on) return '';
+    return '<button class="chip ' + (on ? 'on' : '') + '" style="--c:' + c.info.color + '" ' +
+      (mode === 'nav' ? 'data-console="' + esc(c.id) + '"' : 'data-filter="' + esc(c.id) + '"') + ' aria-pressed="' + on + '">' +
+      '<span class="dot"></span>' + esc(c.name) + (n != null ? '<span class="n">' + fmtNum(n) + '</span>' : '') + '</button>';
+  }).join('') + '</nav>');
+}
+
+function setTint(color) { document.documentElement.style.setProperty('--tint', color); }
+
+/* ============================================================
+   Emuladores (links oficiais)
+   "covers" usa as siglas da lista CONSOLES lá em cima.
+   ============================================================ */
+var EMULATORS = [
+  { name: 'RetroArch', url: 'https://www.retroarch.com', for: 'Vários consoles num app só', color: '#e8a33d', wide: true,
+    desc: 'Junta dezenas de emuladores (os “núcleos”) numa interface única, com a mesma configuração de controle pra tudo. Ideal pros consoles antigos: escolha o núcleo do console dentro do próprio app.',
+    covers: ['NES','SNES','N64','GB','GBC','GBA','DS','MD','SMS','GG','SCD','SAT','DC','PS1','PSP','2600','5200','7800','NEO','ARC','MAME','NGP','PCE','MSX'], os: 'Windows · macOS · Linux · Android · iOS' },
+  { name: 'Cemu', url: 'https://cemu.info', for: 'Wii U', color: '#0096c8',
+    desc: 'O emulador de Wii U. Roda muito bem os principais jogos do console.', covers: ['Wii U'], os: 'Windows · macOS · Linux' },
+  { name: 'shadPS4', url: 'https://shadps4.net', for: 'PlayStation 4', color: '#1d3f9a',
+    desc: 'Emulador experimental de PS4. Ainda poucos jogos rodam bem; confira a lista de compatibilidade antes.', covers: ['PS4'], os: 'Windows · macOS · Linux' },
+  { name: 'MAME', url: 'https://www.mamedev.org', for: 'Fliperama (arcade)', color: '#5a6b7d',
+    desc: 'O emulador de fliperama de referência. As ROMs precisam ser da mesma versão do MAME que você usa.', covers: ['MAME','ARC','NEO'], os: 'Windows · macOS · Linux' },
+  { name: 'Dolphin', url: 'https://dolphin-emu.org', for: 'GameCube e Wii', color: '#2ba8e0',
+    desc: 'O emulador de GameCube e Wii. Roda em alta resolução e aceita o controle do Wii.', covers: ['GC','Wii'], os: 'Windows · macOS · Linux · Android' },
+  { name: 'PCSX2', url: 'https://pcsx2.net', for: 'PlayStation 2', color: '#2f55c4',
+    desc: 'O emulador de PS2 mais completo. Precisa da BIOS do console.', covers: ['PS2'], os: 'Windows · macOS · Linux' },
+  { name: 'DuckStation', url: 'https://github.com/stenzek/duckstation', for: 'PlayStation', color: '#8a94a8',
+    desc: 'Emulador de PS1 rápido e preciso, com melhorias de imagem. Precisa da BIOS do console.', covers: ['PS1'], os: 'Windows · macOS · Linux · Android' },
+  { name: 'PPSSPP', url: 'https://www.ppsspp.org', for: 'PSP', color: '#3e4c6e',
+    desc: 'Emulador de PSP leve, roda bem até em celular simples.', covers: ['PSP'], os: 'Windows · macOS · Linux · Android · iOS' },
+  { name: 'RPCS3', url: 'https://rpcs3.net', for: 'PlayStation 3', color: '#4c5a73',
+    desc: 'Emulador de PS3. Pede um PC forte; confira a lista de compatibilidade no site antes.', covers: ['PS3'], os: 'Windows · macOS · Linux' },
+  { name: 'Vita3K', url: 'https://vita3k.org', for: 'PS Vita', color: '#1f6fe0',
+    desc: 'Emulador experimental de PS Vita. Muitos jogos já rodam; veja a lista no site.', covers: ['Vita'], os: 'Windows · macOS · Linux · Android' },
+  { name: 'melonDS', url: 'https://melonds.kuribo64.net', for: 'Nintendo DS', color: '#7d8796',
+    desc: 'Emulador de DS preciso, com as duas telas lado a lado ou empilhadas.', covers: ['DS'], os: 'Windows · macOS · Linux' },
+  { name: 'Azahar', url: 'https://azahar-emu.org', for: 'Nintendo 3DS', color: '#d02a3c',
+    desc: 'Continuação dos projetos Citra e Lime3DS para jogos de 3DS.', covers: ['3DS'], os: 'Windows · macOS · Linux · Android' },
+  { name: 'mGBA', url: 'https://mgba.io', for: 'Game Boy, Color e Advance', color: '#4b3bbf',
+    desc: 'Emulador de GBA leve e preciso. Também roda Game Boy e Game Boy Color.', covers: ['GBA','GB','GBC'], os: 'Windows · macOS · Linux' },
+  { name: 'RMG', url: 'https://github.com/Rosalie241/RMG', for: 'Nintendo 64', color: '#1f9d55',
+    desc: 'Rosalie’s Mupen GUI: emulador de N64 moderno e fácil de configurar.', covers: ['N64'], os: 'Windows · Linux' },
+  { name: 'Snes9x', url: 'https://www.snes9x.com', for: 'Super Nintendo', color: '#6b4fd8',
+    desc: 'O clássico emulador de SNES: leve e compatível com quase tudo.', covers: ['SNES'], os: 'Windows · macOS · Linux' },
+  { name: 'Mesen', url: 'https://www.mesen.ca', for: 'NES, SNES e Game Boy', color: '#c62d2d',
+    desc: 'Muito preciso e cheio de ferramentas. Uma das melhores opções pra NES.', covers: ['NES','SNES','GB','GBC','PCE'], os: 'Windows · macOS · Linux' },
+  { name: 'Flycast', url: 'https://github.com/flyinghead/flycast', for: 'Dreamcast', color: '#f07a1a',
+    desc: 'Emulador de Dreamcast com imagem em alta resolução.', covers: ['DC'], os: 'Windows · macOS · Linux · Android' },
+  { name: 'ares', url: 'https://ares-emu.net', for: 'Vários consoles, com precisão', color: '#9a6bd8',
+    desc: 'Multi-sistema focado em precisão: NES, SNES, N64, Mega Drive, PC Engine e outros.', covers: ['NES','SNES','N64','GB','GBC','GBA','MD','SMS','GG','SCD','PCE','NGP','MSX'], os: 'Windows · macOS · Linux' },
+  { name: 'Stella', url: 'https://stella-emu.github.io', for: 'Atari 2600', color: '#b8692e',
+    desc: 'O emulador de referência para Atari 2600.', covers: ['2600'], os: 'Windows · macOS · Linux' }
+];
+function emusFor(short) {
+  // específicos primeiro, depois os multi-sistema
+  return EMULATORS.filter(function (e) { return e.covers.indexOf(short) >= 0; })
+    .sort(function (a, b) { return (a.covers.length > 5) - (b.covers.length > 5); });
+}
+function emuHintHTML(c) {
+  var list = emusFor(c.info.short).slice(0, 3);
+  if (!list.length) return '';
+  return '<button class="emu-hint" data-nav="emus" data-emu-for="' + esc(c.id) + '">' + ICON.pad + 'Como jogar: <b>' + list.map(function (e) { return esc(e.name); }).join(', ') + '</b>' + ICON.right.replace('width="22" height="22"', 'width="14" height="14"') + '</button>';
+}
+
+function renderEmus() {
+  var f = state.emuFilter ? state.byId[state.emuFilter] : null;
+  setTint(f ? f.info.color : HOME_TINT);
+  var mine = {};
+  state.consoles.forEach(function (c) { mine[c.info.short] = c.info.color; });
+  var list = f ? emusFor(f.info.short) : EMULATORS;
+  var chips = fwrapHTML('<nav class="filters" aria-label="Filtrar por console">' +
+    '<button class="chip ' + (f ? '' : 'on') + '" data-emu-filter="">Todos</button>' +
+    state.consoles.filter(function (c) { return emusFor(c.info.short).length; }).map(function (c) {
+      var on = f && f.id === c.id;
+      return '<button class="chip ' + (on ? 'on' : '') + '" style="--c:' + c.info.color + '" data-emu-filter="' + esc(c.id) + '" aria-pressed="' + !!on + '"><span class="dot"></span>' + esc(c.name) + '</button>';
+    }).join('') + '</nav>');
+  var cards = list.map(function (e) {
+    var tags = e.covers.map(function (sh) {
+      return mine[sh] ? '<span class="tag mine" style="--k:' + mine[sh] + '">' + esc(sh) + '</span>' : '<span class="tag">' + esc(sh) + '</span>';
+    }).join('');
+    var head = '<div><div class="emu-name">' + esc(e.name) + '</div><div class="emu-for">' + esc(e.for) + '</div></div>';
+    var foot = '<div class="emu-foot"><span class="emu-os">' + esc(e.os) + '</span>' +
+      '<a class="btn btn-play sm" href="' + e.url + '" target="_blank" rel="noopener">Site oficial' + ICON.ext + '</a></div>';
+    if (e.wide && !f) {
+      return '<article class="emu wide" style="--c:' + e.color + '">' +
+        '<div class="emu-main">' + head + '<p class="emu-desc">' + esc(e.desc) + '</p></div>' +
+        '<div class="emu-side"><div class="emu-consoles">' + tags + '</div>' + foot + '</div>' +
+      '</article>';
+    }
+    return '<article class="emu" style="--c:' + e.color + '">' + head + '<p class="emu-desc">' + esc(e.desc) + '</p><div class="emu-consoles">' + tags + '</div>' + foot + '</article>';
+  }).join('');
+  var hasSwitch = state.consoles.some(function (c) { return /^(Switch|NS2)$/.test(c.info.short); });
+
+  app.innerHTML = barHTML('') +
+    '<section class="emus-hero">' +
+      '<div class="eyebrow">Pra jogar suas ROMs</div>' +
+      '<h1>Emuladores</h1>' +
+      '<p>Todos gratuitos. <b>Baixe sempre pelo site oficial</b>: versões de outros sites costumam vir com vírus. ' +
+      'As siglas coloridas são os consoles que você tem no Drive.</p>' +
+    '</section>' + chips +
+    '<section class="section" style="padding-top:14px">' +
+      (cards ? '<div class="emus">' + cards + '</div>' : '<div class="empty">Nenhum emulador listado pra esse console.</div>') +
+      (hasSwitch && !f ? '<div class="note-box"><b>Switch e Switch 2:</b> não listamos emulador aqui. Os projetos mudam muito e vários foram encerrados, então pesquise com cuidado antes de baixar qualquer coisa.</div>' : '') +
+    '</section>';
+}
+
+/* ============================================================
+   Franquias: agrupa jogos pelo nome, em qualquer console
+   "re" é testado no título em minúsculas, sem acento e só com letras/números/espaços.
+   ============================================================ */
+var FRANCHISES = [
+  { id: 'mario', name: 'Super Mario', color: '#e52521', re: /\b(mario|luigi)\b/ },
+  { id: 'zelda', name: 'The Legend of Zelda', color: '#2e8b57', re: /\bzelda\b/ },
+  { id: 'pokemon', name: 'Pokémon', color: '#f2b807', re: /\bpokemon\b/ },
+  { id: 'sonic', name: 'Sonic', color: '#1f5fd6', re: /\bsonic\b/ },
+  { id: 'ff', name: 'Final Fantasy', color: '#4a5fa8', re: /\bfinal fantasy\b|\bdissidia\b/ },
+  { id: 'dq', name: 'Dragon Quest', color: '#2b6cc4', re: /\bdragon (quest|warrior)\b/ },
+  { id: 'kh', name: 'Kingdom Hearts', color: '#7a4fc9', re: /\bkingdom hearts\b/ },
+  { id: 'castlevania', name: 'Castlevania', color: '#8e1b2c', re: /\b(castlevania|akumajou?)\b/ },
+  { id: 'metroid', name: 'Metroid', color: '#d9661f', re: /\bmetroid\b/ },
+  { id: 'dk', name: 'Donkey Kong', color: '#8a5a2b', re: /\bdonkey kong\b/ },
+  { id: 'kirby', name: 'Kirby', color: '#e86aa6', re: /\bkirby\b/ },
+  { id: 'yoshi', name: 'Yoshi', color: '#3fae49', re: /\byoshi\b/ },
+  { id: 'starfox', name: 'Star Fox', color: '#2a7bb8', re: /\bstar ?fox\b/ },
+  { id: 'fe', name: 'Fire Emblem', color: '#b8333a', re: /\bfire emblem\b/ },
+  { id: 'megaman', name: 'Mega Man', color: '#1e88e5', re: /\b(mega ?man|rock ?man)\b/ },
+  { id: 'sf', name: 'Street Fighter', color: '#d9480f', re: /\bstreet fighter\b/ },
+  { id: 'mk', name: 'Mortal Kombat', color: '#b8860b', re: /\bmortal kombat\b/ },
+  { id: 'kof', name: 'The King of Fighters', color: '#c0392b', re: /\bking of fighters\b/ },
+  { id: 'tekken', name: 'Tekken', color: '#8b1e1e', re: /\btekken\b/ },
+  { id: 're', name: 'Resident Evil', color: '#7d1515', re: /\b(resident evil|biohazard)\b/ },
+  { id: 'sh', name: 'Silent Hill', color: '#5c5c5c', re: /\bsilent hill\b/ },
+  { id: 'mgs', name: 'Metal Gear', color: '#4f6b4a', re: /\bmetal gear\b/ },
+  { id: 'gow', name: 'God of War', color: '#a32020', re: /\bgod of war\b/ },
+  { id: 'crash', name: 'Crash Bandicoot', color: '#e8701a', re: /\bcrash (bandicoot|team|nitro|bash|twinsanity|of the titans|mind over)\b/ },
+  { id: 'spyro', name: 'Spyro', color: '#7b3fb5', re: /\bspyro\b/ },
+  { id: 'dbz', name: 'Dragon Ball', color: '#f08c00', re: /\bdragon ball\b/ },
+  { id: 'naruto', name: 'Naruto', color: '#f07d1a', re: /\bnaruto\b/ },
+  { id: 'yugioh', name: 'Yu-Gi-Oh!', color: '#a0782c', re: /\byu ?gi ?oh\b/ },
+  { id: 'persona', name: 'Persona e Shin Megami Tensei', color: '#d4202a', re: /\b(persona|shin megami tensei|megami tensei)\b/ },
+  { id: 'tales', name: 'Tales of', color: '#2f8f8f', re: /\btales of\b/ },
+  { id: 'mh', name: 'Monster Hunter', color: '#8f6a2a', re: /\bmonster hunter\b/ },
+  { id: 'gta', name: 'Grand Theft Auto', color: '#3d8f3d', re: /\b(grand theft auto|gta)\b/ },
+  { id: 'contra', name: 'Contra', color: '#b03a2e', re: /\bcontra\b/ },
+  { id: 'metalslug', name: 'Metal Slug', color: '#9a7b3c', re: /\bmetal slug\b/ },
+  { id: 'bomberman', name: 'Bomberman', color: '#3a6fd8', re: /\bbomberman\b/ },
+  { id: 'pacman', name: 'Pac-Man', color: '#f2c200', re: /\bpac ?man\b/ },
+  { id: 'xmen', name: 'X-Men', color: '#2b5fa8', re: /\b(x ?men|wolverine)\b/ },
+  { id: 'tmnt', name: 'Tartarugas Ninja', color: '#2f9a47', re: /\b(teenage mutant|ninja turtles|tmnt)\b/ },
+  { id: 'halo', name: 'Halo', color: '#4b7a5a', re: /\bhalo\b/ },
+  { id: 'gt', name: 'Gran Turismo', color: '#3a4f8f', re: /\bgran turismo\b/ },
+  { id: 'nfs', name: 'Need for Speed', color: '#d1a10f', re: /\bneed for speed\b/ },
+  { id: 'th', name: 'Tony Hawk', color: '#c43c2c', re: /\btony hawk\b/ }
+];
+function isExtra(g) { return /^(dlc|updates?|patch(es)?|atualiza)/i.test(g.path[0] || ''); }
+function franchiseKey(g) {
+  if (g._fk == null) g._fk = ' ' + String(g.title + ' ' + g.base).toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ';
+  return g._fk;
+}
+function franchiseGames(f) {
+  return state.all.filter(function (g) { return !g.folder && !isExtra(g) && f.re.test(franchiseKey(g)); });
+}
+function franchisesWithGames() {
+  return FRANCHISES.map(function (f) { return { f: f, games: franchiseGames(f) }; })
+    .filter(function (x) { return x.games.length; })
+    .sort(function (a, b) { return b.games.length - a.games.length; });
+}
+function consolesOf(list) {
+  var seen = {}, out = [];
+  list.forEach(function (g) { if (!seen[g.consoleId]) { seen[g.consoleId] = 1; out.push(state.byId[g.consoleId]); } });
+  return out;
+}
+function franchiseTileHTML(x) {
+  var seen = {}, cs = consolesOf(x.games).filter(function (c) { if (seen[c.info.short]) return false; seen[c.info.short] = 1; return true; });
+  return '<button class="tile sub franq" style="--c:' + x.f.color + '" data-franchise="' + x.f.id + '">' +
+    '<div class="fan" aria-hidden="true">' + pickCovers(x.games, 3).map(function (g) { return posterHTML(g, false); }).join('') + '</div>' +
+    '<div class="label">' +
+      '<div class="short">' + esc(x.f.name) + '</div>' +
+      '<div class="count">' + plural(x.games.length, 'jogo', 'jogos') + '</div>' +
+      '<div class="cons">' + cs.slice(0, 5).map(function (c) { return '<span>' + esc(c.info.short) + '</span>'; }).join('') + (cs.length > 5 ? '<span>+' + (cs.length - 5) + '</span>' : '') + '</div>' +
+    '</div>' +
+  '</button>';
+}
+
+function renderFranchises() {
+  setTint(HOME_TINT);
+  var list = franchisesWithGames();
+  var loading = state.consoles.some(function (c) { return !c.games; });
+  var total = 0; list.forEach(function (x) { total += x.games.length; });
+  app.innerHTML = barHTML('') +
+    '<section class="picker">' +
+      '<div class="eyebrow">Por série, em qualquer console</div>' +
+      '<h1>Franquias</h1>' +
+      '<p class="lede">' + (list.length
+        ? '<b>' + list.length + '</b> franquias · <b>' + fmtNum(total) + '</b> jogos' + (loading ? ' até agora' : '')
+        : (loading ? 'Lendo suas pastas no Drive…' : 'Nenhum jogo de franquia famosa encontrado ainda.')) + '</p>' +
+      '<div class="consoles folders">' + list.map(franchiseTileHTML).join('') + '</div>' +
+    '</section>';
+}
+
+function renderFranchise(id) {
+  var f = FRANCHISES.filter(function (x) { return x.id === id; })[0];
+  if (!f) return go({ type: 'franchises' });
+  setTint(f.color);
+  var games = franchiseGames(f);
+  var cs = consolesOf(games);
+  // mosaico de capas de fundo: repete até encher
+  var pics = games.filter(hasCover);
+  if (pics.length < 3) pics = games.slice();
+  pics.sort(function (a, b) { return hash(a.key + state.seed) - hash(b.key + state.seed); });
+  var mos = [];
+  // vizinhos diferentes: percorre a lista com um passo que não divide o tamanho
+  for (var i = 0; pics.length && i < 30; i++) mos.push(pics[(i * 5 + Math.floor(i / 6) * 3) % pics.length]);
+  var html = barHTML('') +
+    '<section class="fhero" style="--c:' + f.color + '">' +
+      '<div class="mosaic" aria-hidden="true">' + mos.map(function (g) { return posterHTML(g, false); }).join('') + '</div>' +
+      '<div class="inner">' +
+        '<nav class="path" aria-label="Caminho"><button data-nav="franchises">Franquias</button><span>/</span><b>' + esc(f.name) + '</b></nav>' +
+        '<h1>' + esc(f.name) + '</h1>' +
+        '<p class="fmeta">' + (games.length ? plural(games.length, 'jogo', 'jogos') + ' em ' + plural(cs.length, 'console', 'consoles') : 'Nenhum jogo dessa franquia no seu Drive ainda.') + '</p>' +
+        (games.length ? '<div class="actions">' +
+          '<button class="btn btn-play" data-franchise-pick="' + f.id + '">' + ICON.dice + 'Sortear um</button>' +
+          '<button class="btn btn-soft" data-nav="franchises">' + ICON.left.replace('width="22" height="22"', 'width="18" height="18"') + 'Todas as franquias</button>' +
+        '</div>' : '') +
+      '</div>' +
+    '</section>';
+  // fileiras por console só quando tem bastante jogo; senão a grade sozinha fica melhor
+  if (cs.length > 1 && games.length >= 12) {
+    cs.forEach(function (c) {
+      var mine = games.filter(function (g) { return g.consoleId === c.id; });
+      html += rowHTML(c.name, mine, mine.length, 'data-console="' + esc(c.id) + '"');
+    });
+  }
+  if (games.length) {
+    var sorted = sortList(games);
+    html += '<section class="section" id="all">' +
+      '<div class="section-head"><h3>Todos os jogos</h3><span class="n">' + plural(games.length, 'jogo', 'jogos') + '</span>' + sortHTML() + '</div>' +
+      '<div class="grid">' + sorted.slice(0, state.gridLimit).map(cardHTML).join('') + '</div>' +
+      (sorted.length > state.gridLimit ? '<button class="more" data-more>Mostrar mais ' + Math.min(120, sorted.length - state.gridLimit) + '</button>' : '') +
+    '</section>';
+  }
+  app.innerHTML = html;
+}
+
+/* ============================================================
+   Sinopse: resumo do jogo na Wikipédia (português; se não achar, inglês)
+   Só aceita o artigo se for de jogo e o título bater com o nome da ROM.
+   Fica guardado no navegador por 30 dias.
+   ============================================================ */
+var SYN_TTL = 30 * 864e5, SYN_MISS_TTL = 7 * 864e5, synInflight = {};
+// nomes em japonês/chinês/coreano entre parênteses: "(クロノ・トリガー, Kurono Torigā)"
+var CJK = String.fromCharCode(0x3040) + '-' + String.fromCharCode(0x30ff) + String.fromCharCode(0x3400) + '-' + String.fromCharCode(0x9fff) + String.fromCharCode(0xac00) + '-' + String.fromCharCode(0xd7af);
+var CJK_PAREN = new RegExp('\\s*\\([^)]*[' + CJK + '][^)]*\\)', 'g');
+function synKey(g) { return 'arc-sinopse-v1:' + norm(g.title); }
+function synWordsOk(gameTitle, wikiTitle) {
+  var want = coverWords(gameTitle).filter(function (w) { return w.length > 1 || /\d/.test(w); });
+  var have = coverWords(wikiTitle);
+  if (!want.length) return false;
+  var miss = want.filter(function (w) { return !have.some(function (h) { return nearWord(w, h); }); }).length;
+  return miss === 0 || (want.length >= 3 && miss === 1);
+}
+function synIsGame(p, lang) {
+  if (/^(lista|list of)\b/i.test(p.title)) return false;
+  var d = (p.description || '') + ' ' + (p.extract || '').slice(0, 220);
+  return lang === 'pt' ? /jogo eletr|videojogo|jogo de (v[ií]deo|computador|luta|plataforma|a[cç][aã]o|rpg|corrida)|rpg eletr/i.test(d) : /video game|videogame/i.test(d);
+}
+function synClean(t) {
+  return String(t).replace(CJK_PAREN, '').replace(/\s*\(\s*\)/g, '').replace(/\s+([,.])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+}
+function synSearch(g, lang) {
+  var extra = lang === 'pt' ? ' jogo eletrônico' : ' video game';
+  var url = 'https://' + lang + '.wikipedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrlimit=5' +
+    '&gsrsearch=' + encodeURIComponent(g.title + extra) +
+    '&prop=extracts|description&exintro=1&explaintext=1&exsentences=5&exlimit=5';
+  return fetch(url).then(function (r) { if (!r.ok) throw new Error('Wikipédia ' + r.status); return r.json(); }).then(function (j) {
+    var pages = j.query && j.query.pages ? Object.keys(j.query.pages).map(function (k) { return j.query.pages[k]; }) : [];
+    pages.sort(function (a, b) { return a.index - b.index; });
+    for (var i = 0; i < pages.length; i++) {
+      var pg = pages[i];
+      if (pg.extract && synIsGame(pg, lang) && synWordsOk(g.title, pg.title)) {
+        return { text: synClean(pg.extract), title: pg.title, lang: lang,
+          url: 'https://' + lang + '.wikipedia.org/wiki/' + encodeURIComponent(pg.title.replace(/ /g, '_')) };
+      }
+    }
+    return null;
+  });
+}
+function getSynopsis(g) {
+  var k = synKey(g);
+  try {
+    var c = JSON.parse(localStorage.getItem(k) || 'null');
+    if (c && Date.now() - c.t < (c.d ? SYN_TTL : SYN_MISS_TTL)) return Promise.resolve(c.d);
+  } catch (e) { /* ignora cache quebrado */ }
+  if (synInflight[k]) return synInflight[k];
+  synInflight[k] = synSearch(g, 'pt')
+    .then(function (d) { return d || synSearch(g, 'en'); })
+    .then(function (d) {
+      try { localStorage.setItem(k, JSON.stringify({ t: Date.now(), d: d })); } catch (e) { /* sem espaço */ }
+      delete synInflight[k];
+      return d;
+    }, function (err) { delete synInflight[k]; throw err; });
+  return synInflight[k];
+}
+function synBoxHTML(g) {
+  return '<div class="syn" data-syn="' + esc(g.key) + '" aria-live="polite"><div class="syn-skel" aria-label="Buscando sinopse"><i></i><i></i><i></i></div></div>';
+}
+function loadSynopsis(g) {
+  getSynopsis(g).then(function (d) { fillSynopsis(g, d, false); }, function () { fillSynopsis(g, null, true); });
+}
+function fillSynopsis(g, d, failed) {
+  document.querySelectorAll('.syn').forEach(function (box) {
+    if (box.getAttribute('data-syn') !== g.key) return;
+    if (!d) {
+      box.innerHTML = '<p class="syn-none">' + (failed ? 'Não deu pra buscar a sinopse agora.' : 'Sem sinopse na Wikipédia pra esse jogo.') +
+        ' <a href="https://pt.wikipedia.org/w/index.php?search=' + encodeURIComponent(g.title + ' jogo') + '" target="_blank" rel="noopener">Procurar na Wikipédia' + ICON.ext + '</a></p>';
+      return;
+    }
+    box.innerHTML = '<p class="syn-text">' + esc(d.text) + '</p>' +
+      '<div class="syn-foot"><button class="syn-more" data-syn-more hidden>Ler mais</button>' +
+      '<a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + (d.lang === 'en' ? 'Wikipédia, em inglês' : 'Wikipédia') + ICON.ext + '</a></div>';
+    var para = box.querySelector('.syn-text');
+    if (para.scrollHeight > para.clientHeight + 2) box.querySelector('.syn-more').hidden = false;
+  });
+}
+
+/* ============================================================
+   Sorteio: roleta de capas que desacelera até o jogo escolhido
+   ============================================================ */
+var REEL_LEN = 64, REEL_WIN = 56;
+function rafflePool() {
+  var r = state.raffle;
+  return state.all.filter(function (g) {
+    if (g.folder) return false;
+    if (isExtra(g)) return false; // só jogos, sem DLC/update
+    if (r.console && g.consoleId !== r.console) return false;
+    if (r.pt && !g.pt) return false;
+    if (r.fav && !isFav(g.key)) return false;
+    return true;
+  });
+}
+function rnd(n) { return Math.floor(Math.random() * n); }
+function reelFill(pool, n) {
+  // enche a roleta preferindo jogos com capa (fica mais bonito girando)
+  var pretty = [];
+  for (var k = 0; k < 150 && pool.length; k++) { var cand = pool[rnd(pool.length)]; if (hasCover(cand)) pretty.push(cand); }
+  var src = pretty.length >= 8 ? pretty : pool, out = [];
+  for (var i = 0; i < n; i++) out.push(src[rnd(src.length)]);
+  return out;
+}
+function reelCardHTML(g, i) {
+  return '<div class="reel-card" data-i="' + i + '">' + posterHTML(g, false) + '</div>';
+}
+function resetRaffle() { var r = state.raffle; r.winner = null; r.reel = null; r.offset = 0; }
+
+function renderRaffle() {
+  var r = state.raffle;
+  var sel = r.console ? state.byId[r.console] : null;
+  setTint(r.winner ? r.winner.color : (sel ? sel.info.color : HOME_TINT));
+  var pool = rafflePool();
+  var loading = state.consoles.some(function (c) { return !c.games; });
+
+  var opts = '<option value="">Todos os consoles</option>' + state.consoles.map(function (c) {
+    return '<option value="' + esc(c.id) + '"' + (c.id === r.console ? ' selected' : '') + '>' + esc(c.name) + '</option>';
+  }).join('');
+  var sw = function (key, label) {
+    return '<button class="switch ' + (r[key] ? 'on' : '') + '" data-raffle-opt="' + key + '" aria-pressed="' + !!r[key] + '"><i></i>' + label + '</button>';
+  };
+
+  var reel;
+  if (r.winner && r.reel) {
+    reel = '<div class="reel" id="reel" style="transform:translateX(' + r.offset + 'px)">' + r.reel.map(reelCardHTML).join('') + '</div>';
+  } else if (pool.length) {
+    var idle = reelFill(pool, 18);
+    reel = '<div class="reel idle" id="reel">' + idle.concat(idle).map(reelCardHTML).join('') + '</div>';
+  } else {
+    reel = '<div class="reel-empty">' + (loading ? 'Carregando seus jogos…' : (r.fav ? 'Nenhum jogo da sua lista com esses filtros.' : 'Nenhum jogo com esses filtros.')) + '</div>';
+  }
+
+  app.innerHTML = barHTML('') +
+    '<section class="raffle">' +
+      '<div class="raffle-head">' +
+        '<div class="eyebrow">Não sabe o que jogar?</div>' +
+        '<h1>Sorteio</h1>' +
+        '<p>A roleta escolhe um jogo da sua coleção. Gostou, baixa; não gostou, gira de novo.</p>' +
+      '</div>' +
+      '<div class="raffle-opts">' +
+        '<label class="sel"><span>Sortear de</span><select id="raffleConsole">' + opts + '</select>' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></label>' +
+        sw('pt', 'Em português') + sw('fav', 'Da minha lista') +
+        '<span class="pool-n">' + plural(pool.length, 'jogo', 'jogos') + ' na roleta</span>' +
+      '</div>' +
+      '<div class="stage ' + (r.winner ? 'done' : '') + '" id="stage">' +
+        '<div class="frame" id="frame"><span class="pin t"></span><span class="pin b"></span></div>' +
+        reel +
+      '</div>' +
+      '<div class="raffle-cta">' +
+        '<button class="spin-btn" data-spin ' + (pool.length ? '' : 'disabled') + '>' + ICON.dice.replace('width="18" height="18"', 'width="26" height="26"') + '<span>' + (r.winner ? 'Girar de novo' : 'Sortear') + '</span></button>' +
+        '<span class="hint">ou aperte <kbd>espaço</kbd></span>' +
+      '</div>' +
+      '<div id="raffleResult">' + (r.winner ? raffleResultHTML(r.winner, false) : '') + '</div>' +
+    '</section>' +
+    (r.history.length > 1 ? rowHTML('Sorteados agora há pouco', r.history.slice(1), null) : '');
+}
+function raffleAfterRender() {
+  if (state.raffle.winner) loadSynopsis(state.raffle.winner);
+  var s = $('#raffleConsole');
+  if (s) s.onchange = function () { state.raffle.console = s.value; resetRaffle(); render(); };
+}
+function raffleResultHTML(g, animate) {
+  var c = state.byId[g.consoleId];
+  return '<div class="result ' + (animate ? 'enter' : '') + '" style="--c:' + g.color + '">' +
+    '<button class="result-cover" data-open="' + esc(g.key) + '" aria-label="Detalhes de ' + esc(g.title) + '">' + posterHTML(g, false, 480) + '</button>' +
+    '<div class="result-info">' +
+      '<div class="eyebrow" style="color:' + g.color + ';filter:brightness(1.6)">Hoje você joga · ' + esc([g.consoleName].concat(g.path).join(' / ')) + '</div>' +
+      '<h2>' + esc(g.title) + '</h2>' +
+      '<div class="meta">' + esc([g.ext.toUpperCase(), fmtSize(g.size)].filter(Boolean).join(' · ')) + (g.pt ? ' <span class="pt-tag">PT-BR</span>' : '') + '</div>' +
+      synBoxHTML(g) +
+      '<div class="actions">' +
+        '<a class="btn btn-play" href="' + downloadUrl(g) + '" target="_blank" rel="noopener">' + ICON.down + 'Baixar</a>' +
+        '<button class="btn btn-soft" data-open="' + esc(g.key) + '">' + ICON.info + 'Detalhes</button>' +
+        favBtn(g, 'btn') +
+      '</div>' +
+      (c ? emuHintHTML(c) : '') +
+    '</div>' +
+  '</div>';
+}
+
+function spinRaffle() {
+  var r = state.raffle;
+  if (r.spinning) return;
+  var pool = rafflePool();
+  if (!pool.length) return;
+  var stage = $('#stage'), reelEl = $('#reel');
+  if (!stage || !reelEl) return;
+
+  // evita repetir o último sorteado quando dá
+  var winner = pool[rnd(pool.length)];
+  if (pool.length > 1 && r.winner && winner === r.winner) winner = pool[(pool.indexOf(winner) + 1 + rnd(pool.length - 1)) % pool.length];
+  var list = reelFill(pool, REEL_LEN);
+  list[REEL_WIN] = winner;
+
+  r.spinning = true; r.winner = null;
+  stage.classList.remove('done');
+  $('#raffleResult').innerHTML = '';
+  var btn = $('.spin-btn'); btn.disabled = true; btn.classList.add('rolling'); btn.querySelector('span').textContent = 'Girando…';
+
+  reelEl.className = 'reel';
+  reelEl.style.transition = 'none';
+  reelEl.style.transform = 'translateX(0px)';
+  reelEl.innerHTML = list.map(reelCardHTML).join('');
+  var card = reelEl.children[REEL_WIN];
+  var jitter = (Math.random() - 0.5) * card.offsetWidth * 0.55;
+  var target = Math.round(stage.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2) + jitter);
+  void reelEl.offsetWidth; // força o navegador a aplicar o ponto de partida
+
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var dur = reduce ? 0 : 5200 + rnd(900);
+  reelEl.style.transition = dur ? 'transform ' + dur + 'ms cubic-bezier(.08,.72,.12,1)' : 'none';
+  reelEl.style.transform = 'translateX(' + target + 'px)';
+  if (dur) {
+    stage.classList.add('fast');
+    setTimeout(function () { stage.classList.remove('fast'); }, dur * 0.35);
+    tickLoop(reelEl, card.offsetWidth, stage.clientWidth);
+  }
+
+  setTimeout(function () {
+    // assenta no centro exato do jogo sorteado
+    reelEl.style.transition = dur ? 'transform .45s cubic-bezier(.3,1.4,.5,1)' : 'none';
+    var settled = Math.round(stage.clientWidth / 2 - (card.offsetLeft + card.offsetWidth / 2));
+    reelEl.style.transform = 'translateX(' + settled + 'px)';
+    r.spinning = false; r.winner = winner; r.reel = list; r.offset = settled;
+    r.history = [winner].concat(r.history.filter(function (x) { return x !== winner; })).slice(0, 13);
+    card.classList.add('win');
+    stage.classList.add('done');
+    setTint(winner.color);
+    if (dur) burst(stage, winner.color);
+    btn.disabled = false; btn.classList.remove('rolling'); btn.querySelector('span').textContent = 'Girar de novo';
+    $('#raffleResult').innerHTML = raffleResultHTML(winner, !reduce);
+    loadSynopsis(winner);
+    setTimeout(function () {
+      var res = $('#raffleResult .result');
+      if (res && res.getBoundingClientRect().bottom > window.innerHeight) res.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'end' });
+    }, reduce ? 0 : 700);
+    if (r.history.length > 1) {
+      // atualiza a fileira de sorteados sem redesenhar a roleta
+      var old = document.querySelector('.raffle + .row'); if (old) old.parentNode.removeChild(old);
+      $('.raffle').insertAdjacentHTML('afterend', rowHTML('Sorteados agora há pouco', r.history.slice(1), null));
+    }
+  }, dur + 30);
+}
+// a moldura dá um "tique" a cada capa que passa por ela
+function tickLoop(reelEl, cardW, stageW) {
+  var frame = $('#frame'), step = cardW + 14, last = null;
+  (function loop() {
+    if (!state.raffle.spinning || !document.body.contains(reelEl)) return;
+    var x = new DOMMatrix(getComputedStyle(reelEl).transform).m41;
+    var idx = Math.floor((stageW / 2 - x) / step);
+    if (idx !== last && last !== null) { frame.classList.remove('tick'); void frame.offsetWidth; frame.classList.add('tick'); }
+    last = idx;
+    requestAnimationFrame(loop);
+  })();
+}
+function burst(stage, color) {
+  var b = document.createElement('div'); b.className = 'burst';
+  var colors = [color, 'var(--tint)', '#ffffff', '#ffd166'];
+  var html = '';
+  for (var i = 0; i < 46; i++) {
+    var a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 300;
+    html += '<i style="--dx:' + Math.round(Math.cos(a) * d * 1.6) + 'px;--dy:' + Math.round(Math.sin(a) * d * 0.7) + 'px;--r:' + rnd(720) + 'deg;--k:' + colors[i % colors.length] + ';animation-delay:' + rnd(120) + 'ms"></i>';
+  }
+  b.innerHTML = html;
+  stage.appendChild(b);
+  setTimeout(function () { b.parentNode && b.parentNode.removeChild(b); }, 1600);
+}
+
+/* ============================================================
+   Telas
+   ============================================================ */
+function render() {
+  var v = state.view;
+  // não redesenha no meio da roleta girando (dados chegando do Drive, etc.)
+  if (v.type === 'raffle' && state.raffle.spinning) return window.scrollY;
+  var scrollY = window.scrollY, focus = document.activeElement && document.activeElement.id === 'q', caret = focus ? $('#q').selectionStart : 0;
+  var prevFilters = {};
+  document.querySelectorAll('.filters').forEach(function (f, i) { prevFilters[i] = f.scrollLeft; });
+  if (v.type === 'console') renderConsole(v.id);
+  else if (v.type === 'search') renderSearch();
+  else if (v.type === 'emus') renderEmus();
+  else if (v.type === 'raffle') renderRaffle();
+  else if (v.type === 'franchises') renderFranchises();
+  else if (v.type === 'franchise') renderFranchise(v.id);
+  else if (v.type === 'consoles') renderConsoles();
+  else if (v.type === 'mylist') renderMyList();
+  else renderHome();
+  if (focus) { var q = $('#q'); q.focus(); q.setSelectionRange(caret, caret); }
+  // mantém a posição das faixas de tags entre redesenhos; na primeira vez, centraliza a tag ativa
+  var sameView = render.lastView === v;
+  render.lastView = v;
+  document.querySelectorAll('.filters').forEach(function (f, i) {
+    if (sameView && prevFilters[i] != null) { f.style.scrollBehavior = 'auto'; f.scrollLeft = prevFilters[i]; f.style.scrollBehavior = ''; }
+  });
+  updateFilterEdges(!sameView);
+  if (v.type === 'raffle') raffleAfterRender();
+  return scrollY;
+}
+
+/* ---------- página Consoles: "Qual console hoje?" ---------- */
+function renderConsoles() {
+  setTint(HOME_TINT);
+  var loaded = state.consoles.filter(function (c) { return c.games; });
+  var total = state.all.length;
+  var tiles = state.consoles.map(function (c) {
+    var picks = c.games ? pickCovers(c.games, 3) : [];
+    var fan = picks.length ? '<div class="fan" aria-hidden="true">' + picks.map(function (g) { return posterHTML(g, false); }).join('') + '</div>' : '';
+    return '<button class="tile" style="--c:' + c.info.color + '" data-console="' + esc(c.id) + '">' +
+      (c.ptbr ? '<span class="pt">PT-BR</span>' : '') + fan +
+      '<div class="label">' +
+        '<div class="short">' + esc(c.info.short) + '</div>' +
+        '<div class="full">' + esc(c.name.replace(/\([^)]*\)/g, '').trim()) + '</div>' +
+        '<div class="count">' + (c.games ? plural(c.games.length, 'jogo', 'jogos') : 'carregando…') + '</div>' +
+      '</div>' +
+    '</button>';
+  }).join('');
+
+  var recent = state.all.slice().sort(function (a, b) { return b.updated - a.updated; }).slice(0, 30);
+
+  app.innerHTML = barHTML('') +
+    '<section class="picker">' +
+      '<h1>Qual console hoje?</h1>' +
+      '<p class="lede">' + (state.consoles.length
+        ? '<b>' + state.consoles.length + '</b> consoles · <b>' + fmtNum(total) + '</b> jogos' + (loaded.length < state.consoles.length ? ' até agora' : '')
+        : 'Lendo suas pastas no Drive…') + '</p>' +
+      '<div class="consoles">' + (tiles || skeletonTiles()) + '</div>' +
+    '</section>' +
+    (total ? rowHTML('Adicionados recentemente', recent, null) : '');
+}
+/* ---------- home estilo streaming ---------- */
+function hasCover(g) { var idx = COVER_IDX[g.sys]; return !!(g.sys && !g.folder && (!(idx && idx.map) || findCover(g))); }
+function heroPicks() {
+  if (state.heroPicks && state.heroPicks.length >= 6) return state.heroPicks;
+  var picks = [];
+  var loaded = state.consoles.filter(function (c) { return c.games && c.games.length; });
+  // um jogo com capa de cada console, em ordem embaralhada por sessão
+  loaded.slice().sort(function (a, b) { return hash(a.id + state.seed) - hash(b.id + state.seed); }).forEach(function (c) {
+    if (picks.length >= 6) return;
+    var p = pickCovers(c.games, 1, state.seed)[0];
+    if (p && hasCover(p)) picks.push(p);
+  });
+  if (!picks.length && state.all.length) picks.push(state.all[state.seed % state.all.length]);
+  state.heroPicks = picks;
+  if (state.heroIdx >= picks.length) state.heroIdx = 0;
+  return picks;
+}
+function heroInnerHTML() {
+  var picks = heroPicks();
+  if (!picks.length) {
+    return '<div class="hero-inner"><div class="hero-text"><div class="eyebrow">Sua coleção</div><h1>Lendo suas pastas no Drive…</h1></div></div>';
+  }
+  var g = picks[state.heroIdx % picks.length];
+  var bg = coverUrls(g, 0, true)[0];
+  return '<div class="hero-bg" style="' + (bg ? "background-image:url('" + esc(bg) + "')" : 'background:' + g.color) + '"></div>' +
+    '<div class="hero-inner">' +
+      '<div class="hero-text">' +
+        '<div class="eyebrow"><span class="sw" style="--c:' + g.color + '">' + esc(g.short) + '</span>Em destaque no ' + esc(g.consoleName) + '</div>' +
+        '<h1>' + esc(g.title) + '</h1>' +
+        '<div class="meta">' + g.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') +
+          (g.size ? '<span class="mono">' + fmtSize(g.size) + '</span>' : '') + '</div>' +
+        '<div class="actions">' +
+          '<a class="btn btn-play" href="' + downloadUrl(g) + '" target="_blank" rel="noopener">' + ICON.down + 'Baixar</a>' +
+          '<button class="btn btn-soft" data-open="' + esc(g.key) + '">' + ICON.info + 'Detalhes</button>' +
+          favBtn(g, 'btn') +
+        '</div>' +
+      '</div>' +
+      '<button class="hero-cover" data-open="' + esc(g.key) + '" aria-label="Detalhes de ' + esc(g.title) + '">' + posterHTML(g, false, 560) + '</button>' +
+    '</div>' +
+    (picks.length > 1 ? '<div class="dots" role="tablist" aria-label="Destaques">' + picks.map(function (p, i) {
+      return '<button class="' + (i === state.heroIdx ? 'on' : '') + '" data-hero="' + i + '" role="tab" aria-selected="' + (i === state.heroIdx) + '" aria-label="' + esc(p.title) + '"></button>';
+    }).join('') + '</div>' : '');
+}
+function heroTint() { var p = heroPicks(); return p.length ? p[state.heroIdx % p.length].color : HOME_TINT; }
+function showHero(i) {
+  var el = $('#hero');
+  if (!el) return;
+  state.heroIdx = i;
+  el.classList.remove('swap'); void el.offsetWidth;
+  el.innerHTML = heroInnerHTML();
+  el.classList.add('swap');
+  setTint(heroTint());
+}
+function consoleRowHTML() {
+  if (!state.consoles.length) return '';
+  return '<section class="row">' +
+    '<div class="row-head"><h3>Consoles</h3><span class="n">' + state.consoles.length + '</span><button class="see-all" data-nav="consoles">Ver todos' + ICON.right.replace('width="22" height="22"', 'width="16" height="16"') + '</button></div>' +
+    '<div class="rail-wrap">' +
+      '<button class="arrow l" data-dir="-1" aria-label="Voltar">' + ICON.left + '</button>' +
+      '<div class="rail">' + state.consoles.map(function (c) {
+        return '<button class="ctile" style="--c:' + c.info.color + '" data-console="' + esc(c.id) + '">' +
+          '<span class="n">' + (c.games ? fmtNum(c.games.length) : '…') + '</span>' +
+          '<span class="short">' + esc(c.info.short) + '</span>' +
+          '<span class="nm">' + esc(c.name) + '</span></button>';
+      }).join('') + '</div>' +
+      '<button class="arrow r" data-dir="1" aria-label="Avançar">' + ICON.right + '</button>' +
+    '</div></section>';
+}
+function rowOrder(list) {
+  // com capa primeiro, depois os mais recentes (olha só os 150 mais recentes: fileira mostra no máximo 30)
+  var byNew = function (a, b) { return b.updated - a.updated; };
+  var l = list.length > 150 ? list.slice().sort(byNew).slice(0, 150) : list.slice();
+  return l.sort(function (a, b) { return (hasCover(b) - hasCover(a)) || byNew(a, b); });
+}
+function favList() {
+  return Object.keys(state.favs).map(function (k) { return state.byKey[k]; }).filter(Boolean)
+    .sort(function (a, b) { return state.favs[b.key] - state.favs[a.key]; });
+}
+function renderHome() {
+  setTint(heroTint());
+  var recent = state.all.slice().sort(function (a, b) { return b.updated - a.updated; }).slice(0, 30);
+  var pt = state.all.filter(function (g) { return g.pt; });
+  var favs = favList();
+  var rows = state.consoles.map(function (c) {
+    if (!c.games) return rowHTML(c.name, null, null);
+    return rowHTML(c.name, rowOrder(c.games).slice(0, 24), c.games.length, 'data-console="' + esc(c.id) + '"');
+  }).join('');
+  app.innerHTML = barHTML('') +
+    '<section class="hero" id="hero">' + heroInnerHTML() + '</section>' +
+    consoleRowHTML() +
+    (favs.length ? rowHTML('Minha lista', favs.slice(0, 30), favs.length, 'data-nav="mylist"') : '') +
+    (state.all.length ? rowHTML('Adicionados recentemente', recent, null) : '') +
+    (pt.length ? rowHTML('Em português', rowOrder(pt).slice(0, 30), pt.length) : '') +
+    rows;
+}
+// troca o destaque sozinho a cada 9 s (pausa com o mouse em cima, com o modal aberto ou aba escondida)
+setInterval(function () {
+  if (state.view.type !== 'home' || state.heroHover || document.hidden) return;
+  if ($('#modalBg').classList.contains('open')) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var n = heroPicks().length;
+  if (n > 1) showHero((state.heroIdx + 1) % n);
+}, 9000);
+document.addEventListener('mouseover', function (e) { state.heroHover = !!(e.target.closest && e.target.closest('#hero')); });
+
+/* ---------- Minha lista ---------- */
+function renderMyList() {
+  setTint('#ff5470');
+  var list = favList();
+  if (state.listSort === 'az') list.sort(function (a, b) { return a.title.localeCompare(b.title, 'pt-BR'); });
+  var missing = favCount() - list.length;
+  var loading = state.consoles.some(function (c) { return !c.games; });
+  var sortBtns = '<div class="sort" role="group" aria-label="Ordenar">' +
+    [['added', 'Adicionados por último'], ['az', 'A–Z']].map(function (o) {
+      var on = (state.listSort || 'added') === o[0];
+      return '<button data-listsort="' + o[0] + '" class="' + (on ? 'on' : '') + '" aria-pressed="' + on + '">' + o[1] + '</button>';
+    }).join('') + '</div>';
+  app.innerHTML = barHTML('') +
+    '<section class="emus-hero">' +
+      '<div class="eyebrow">Seus favoritos</div>' +
+      '<h1>Minha lista</h1>' +
+      '<p>' + (list.length ? '<b>' + plural(list.length, 'jogo guardado', 'jogos guardados') + '</b> neste navegador.' : 'Guarde aqui os jogos que você quer achar rápido.') +
+        (missing > 0 && loading ? ' Carregando mais ' + missing + '…' : '') + '</p>' +
+    '</section>' +
+    '<section class="section" style="padding-top:22px">' +
+      (list.length
+        ? '<div class="section-head" style="margin-bottom:16px">' + sortBtns + '</div><div class="grid">' + list.map(cardHTML).join('') + '</div>'
+        : '<div class="empty-state"><div class="big">' + ICON.heart.split('</svg>')[1] + '</svg></div>' +
+            '<h3>Sua lista está vazia</h3>' +
+            '<p>Toque no coração de um jogo pra guardar ele aqui. A lista fica salva neste navegador.</p>' +
+            '<button class="btn btn-play" data-home>Explorar jogos</button></div>') +
+    '</section>';
+}
+
+function skeletonTiles() { var s = ''; for (var i = 0; i < 8; i++) s += '<div class="tile skeleton" style="--c:#2a2e3d;animation:pulse 1.4s infinite"></div>'; return s; }
+// Escolhe n jogos com capa olhando só uma amostra da lista (no máximo 60 jogos),
+// em vez de procurar a capa de todos: com milhares de ROMs isso travava a tela.
+function pickCovers(list, n, seed) {
+  var len = list.length, out = [], i, g;
+  if (!len) return out;
+  var start = (hash(list[0].consoleId) + (seed || 0)) % len;
+  var step = Math.max(1, Math.floor(len / Math.max(n * 6, 1)));
+  for (i = 0; out.length < n && i < Math.min(len, 60); i++) {
+    g = list[(start + i * step + Math.floor(i * step / len)) % len];
+    if (out.indexOf(g) < 0 && hasCover(g)) out.push(g);
+  }
+  for (i = 0; out.length < n && i < len; i++) {
+    g = list[(start + i) % len];
+    if (out.indexOf(g) < 0) out.push(g);
+  }
+  return out;
+}
+
+/* ---------- página do console (e das subpastas dele) ---------- */
+function inPath(g, path) {
+  if (g.path.length < path.length) return false;
+  for (var i = 0; i < path.length; i++) if (g.path[i] !== path[i]) return false;
+  return true;
+}
+function totalSize(list) { return list.reduce(function (s, g) { return s + g.size; }, 0); }
+function subfolders(list, path) {
+  var map = {}, order = [];
+  list.forEach(function (g) {
+    if (g.path.length <= path.length) return;
+    var name = g.path[path.length];
+    if (!map[name]) { map[name] = { name: name, items: [] }; order.push(name); }
+    map[name].items.push(g);
+  });
+  // Pastas de jogos primeiro (Jogos, Games, ROMs), depois o resto em ordem alfabética.
+  var rank = function (n) { return /^(jogos?|games?|roms?)$/i.test(n) ? 0 : 1; };
+  order.sort(function (a, b) { return rank(a) - rank(b) || a.localeCompare(b, 'pt-BR'); });
+  return order.map(function (n) { return map[n]; });
+}
+function folderTilesHTML(subs, c) {
+  return '<div class="consoles folders">' + subs.map(function (s) {
+    var picks = pickCovers(s.items, 3);
+    return '<button class="tile sub" style="--c:' + c.info.color + '" data-sub="' + esc(s.name) + '">' +
+      '<div class="fan" aria-hidden="true">' + picks.map(function (g) { return posterHTML(g, false); }).join('') + '</div>' +
+      '<div class="label">' +
+        '<div class="ficon">' + ICON.folder + '</div>' +
+        '<div class="short">' + esc(s.name) + '</div>' +
+        '<div class="count">' + plural(s.items.length, 'arquivo', 'arquivos') + ' · ' + fmtSize(totalSize(s.items)) + '</div>' +
+      '</div>' +
+    '</button>';
+  }).join('') + '</div>';
+}
+function renderConsole(id) {
+  var c = state.byId[id];
+  var path = state.view.path || [];
+  setTint(c.info.color);
+  if (!c.games) {
+    app.innerHTML = barHTML(filtersHTML('nav')) + '<div class="section"><div class="empty">Carregando ' + esc(c.name) + '…</div></div>';
+    return;
+  }
+  if (!c.games.length) {
+    app.innerHTML = barHTML(filtersHTML('nav')) + '<div class="section"><div class="empty"><b>' + esc(c.name) + '</b> ainda está vazio. Coloque ROMs nessa pasta do Drive e clique em recarregar.</div></div>';
+    return;
+  }
+  var inside = c.games.filter(function (g) { return inPath(g, path); });
+  var direct = inside.filter(function (g) { return g.path.length === path.length; });
+  var subs = subfolders(inside, path);
+  var html = barHTML(filtersHTML('nav'));
+
+  if (!path.length) {
+    // Destaque: prefere arquivos soltos ou de uma pasta chamada "Jogos"/"Games".
+    var pool = direct.length ? direct : inside.filter(function (g) { return /jogo|game|rom/i.test(g.path[0] || ''); });
+    if (!pool.length) pool = inside;
+    var f = state.featured[id];
+    if (!f || pool.indexOf(f) < 0) f = state.featured[id] = pickCovers(pool, 1)[0] || pool[0];
+    var recent = inside.slice().sort(function (a, b) { return b.updated - a.updated; }).slice(0, 24);
+    var pt = c.ptbr ? [] : inside.filter(function (g) { return isPtBr(g.base); });
+    html += billboardHTML(f, c) +
+      (subs.length ? '<section class="section folder-section"><div class="section-head"><h3>Pastas</h3><span class="n">' + subs.length + '</span></div>' + folderTilesHTML(subs, c) + '</section>' : '') +
+      rowHTML('Adicionados recentemente', recent, null) +
+      (pt.length ? rowHTML('Em português', pt.slice(0, 30), pt.length) : '');
+  } else {
+    var crumbs = '<button data-crumb="0">' + esc(c.name) + '</button>' + path.map(function (p, i) {
+      return '<span>/</span>' + (i === path.length - 1 ? '<b>' + esc(p) + '</b>' : '<button data-crumb="' + (i + 1) + '">' + esc(p) + '</button>');
+    }).join('');
+    html += '<section class="folder-head">' +
+      '<nav class="path" aria-label="Caminho">' + crumbs + '</nav>' +
+      '<h2>' + esc(path[path.length - 1]) + '</h2>' +
+      '<div class="meta"><span class="mono">' + plural(inside.length, 'arquivo', 'arquivos') + ' · ' + fmtSize(totalSize(inside)) + '</span>' +
+        (subs.length ? '<span>· ' + plural(subs.length, 'subpasta', 'subpastas') + '</span>' : '') + '</div>' +
+      '<button class="btn btn-soft back" data-crumb="' + (path.length - 1) + '">' + ICON.left + 'Voltar</button>' +
+    '</section>' +
+    (subs.length ? '<section class="section folder-section"><div class="section-head"><h3>Pastas</h3></div>' + folderTilesHTML(subs, c) + '</section>' : '');
+  }
+
+  if (direct.length) {
+    var sorted = sortList(direct);
+    html += '<section class="section" id="all">' +
+      '<div class="section-head"><h3>' + (path.length ? 'Arquivos' : (subs.length ? 'Arquivos soltos' : 'Todos os jogos')) + '</h3><span class="n">' + plural(direct.length, 'arquivo', 'arquivos') + ' · ' + fmtSize(totalSize(direct)) + '</span>' + sortHTML() + '</div>' +
+      '<div class="grid">' + sorted.slice(0, state.gridLimit).map(cardHTML).join('') + '</div>' +
+      (sorted.length > state.gridLimit ? '<button class="more" data-more>Mostrar mais ' + Math.min(120, sorted.length - state.gridLimit) + '</button>' : '') +
+    '</section>';
+  }
+  app.innerHTML = html;
+}
+function billboardHTML(g, c) {
+  var bg = coverUrls(g, 0, true)[0];
+  return '<section class="billboard">' +
+    '<div class="bg" style="' + (bg ? "background-image:url('" + esc(bg) + "')" : 'background:' + c.info.color) + '"></div>' +
+    '<div class="inner">' +
+      '<div class="cover">' + posterHTML(g, false, 480) + '</div>' +
+      '<div>' +
+        '<div class="eyebrow">' + esc(c.name) + ' · em destaque</div>' +
+        '<h2>' + esc(g.title) + '</h2>' +
+        '<div class="meta">' + g.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') +
+          (g.size ? '<span class="mono">' + fmtSize(g.size) + '</span>' : '') + '</div>' +
+        '<div class="actions">' +
+          '<a class="btn btn-play" href="' + downloadUrl(g) + '" target="_blank" rel="noopener">' + ICON.down + (g.folder ? 'Abrir pasta' : 'Baixar') + '</a>' +
+          '<button class="btn btn-soft" data-open="' + esc(g.key) + '">' + ICON.info + 'Detalhes</button>' +
+          favBtn(g, 'btn') +
+          '<button class="btn btn-soft" data-shuffle title="Sortear outro destaque">' + ICON.dice + 'Sortear</button>' +
+        '</div>' +
+        emuHintHTML(c) +
+      '</div>' +
+    '</div>' +
+  '</section>';
+}
+function sortHTML() {
+  var opts = [['az', 'A–Z'], ['recent', 'Recentes'], ['size', 'Tamanho']];
+  return '<div class="sort" role="group" aria-label="Ordenar">' + opts.map(function (o) {
+    return '<button data-sort="' + o[0] + '" class="' + (state.sort === o[0] ? 'on' : '') + '" aria-pressed="' + (state.sort === o[0]) + '">' + o[1] + '</button>';
+  }).join('') + '</div>';
+}
+function sortList(list) {
+  var l = list.slice();
+  if (state.sort === 'recent') l.sort(function (a, b) { return b.updated - a.updated; });
+  else if (state.sort === 'size') l.sort(function (a, b) { return b.size - a.size; });
+  else l.sort(function (a, b) { return a.title.localeCompare(b.title, 'pt-BR'); });
+  return l;
+}
+
+/* ---------- busca ---------- */
+function searchHits() {
+  var terms = state.q.toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+  return state.all.filter(function (g) {
+    for (var i = 0; i < terms.length; i++) if (g.searchKey.indexOf(terms[i]) < 0) return false;
+    return true;
+  });
+}
+function renderSearch() {
+  var hits = searchHits();
+  var counts = { total: hits.length, by: {} };
+  hits.forEach(function (g) { counts.by[g.consoleId] = (counts.by[g.consoleId] || 0) + 1; });
+  var shown = state.filters.length ? hits.filter(function (g) { return state.filters.indexOf(g.consoleId) >= 0; }) : hits;
+  shown = sortList(shown);
+  var only = state.filters.length === 1 ? state.byId[state.filters[0]] : null;
+  setTint(only ? only.info.color : HOME_TINT);
+  var stillLoading = state.consoles.some(function (c) { return !c.games; });
+
+  app.innerHTML = barHTML('') +
+    '<section class="search-hero">' +
+      '<h2>Resultados para <em>' + esc(state.q) + '</em></h2>' +
+      '<div class="n">' + plural(shown.length, 'jogo encontrado', 'jogos encontrados') +
+        (state.filters.length ? ' em ' + state.filters.map(function (id) { return esc(state.byId[id].name); }).join(', ') : ' em todos os consoles') +
+        (stillLoading ? ' · alguns consoles ainda estão carregando' : '') + '</div>' +
+    '</section>' +
+    filtersHTML('filter', counts) +
+    '<section class="section" style="padding-top:18px">' +
+      '<div class="section-head" style="margin-bottom:14px">' + sortHTML() + '</div>' +
+      (shown.length
+        ? '<div class="grid">' + shown.slice(0, state.gridLimit).map(cardHTML).join('') + '</div>' +
+          (shown.length > state.gridLimit ? '<button class="more" data-more>Mostrar mais ' + Math.min(120, shown.length - state.gridLimit) + '</button>' : '')
+        : '<div class="empty">Nenhum jogo com <b>' + esc(state.q) + '</b>' + (state.filters.length ? ' nos consoles filtrados. Tente <button class="chip" data-filter-clear style="display:inline-flex">todos os consoles</button>' : '. Confira a grafia ou tente só uma palavra do nome.') + '</div>') +
+    '</section>';
+}
+
+/* ---------- detalhes ---------- */
+function openModal(key) {
+  var g = state.byKey[key];
+  if (!g) return;
+  var c = state.byId[g.consoleId];
+  var bg = coverUrls(g, 0, true)[0];
+  var sameFolder = c.games.filter(function (x) { return x !== g && x.path.join('/') === g.path.join('/'); });
+  var more = sameFolder.length ? sameFolder : c.games.filter(function (x) { return x !== g; });
+  var moreTitle = 'Mais de ' + (g.path.length ? g.path[g.path.length - 1] : c.name);
+  var start = hash(g.key) % Math.max(1, more.length);
+  more = more.slice(start).concat(more.slice(0, start)).slice(0, 6);
+
+  $('#modal').innerHTML =
+    '<button class="close" data-close aria-label="Fechar">' + ICON.close + '</button>' +
+    '<div class="head">' +
+      '<div class="bg" style="' + (bg ? "background-image:url('" + esc(bg) + "')" : 'background:' + g.color) + '"></div>' +
+      '<div class="cover">' + posterHTML(g, true, 480) + '</div>' +
+      '<div>' +
+        '<div class="eyebrow" style="color:' + g.color + ';filter:brightness(1.5)">' + esc([g.consoleName].concat(g.path).join(' / ')) + '</div>' +
+        '<h2>' + esc(g.title) + '</h2>' +
+        '<div class="meta">' + g.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' +
+        '<div class="meta" style="margin-top:10px">' + (g.size ? '<span class="mono">' + fmtSize(g.size) + '</span><span>·</span>' : '') + '<span>adicionado em ' + fmtDate(g.updated) + '</span></div>' +
+        '<div class="actions">' +
+          '<a class="btn btn-play" href="' + downloadUrl(g) + '" target="_blank" rel="noopener">' + ICON.down + (g.folder ? 'Abrir pasta no Drive' : 'Baixar ROM') + '</a>' +
+          (g.folder ? '' : '<a class="btn btn-soft" href="' + driveUrl(g) + '" target="_blank" rel="noopener">' + ICON.drive + 'Abrir no Drive</a>') +
+          favBtn(g, 'btn') +
+          (g.path.length ? '<button class="btn btn-soft" data-goto="' + esc(g.key) + '">' + ICON.folder + 'Ver pasta</button>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="body">' +
+      '<h4 class="syn-h">Sinopse</h4>' + synBoxHTML(g) +
+      '<div class="file">' + esc(g.file) + '</div>' +
+      (g.size > 100 * 1024 * 1024 ? '<div class="note">Arquivo grande: o Google vai avisar que não consegue verificar vírus. Clique em “Fazer o download assim mesmo”.</div>' : '') +
+      (more.length ? '<h4>' + esc(moreTitle) + '</h4><div class="mini">' + more.map(cardHTML).join('') + '</div>' : '') +
+    '</div>';
+  $('#modalBg').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  $('#modal').scrollTop = 0; $('#modalBg').scrollTop = 0;
+  var btn = $('#modal .btn-play'); if (btn) btn.focus({ preventScroll: true });
+  loadSynopsis(g);
+}
+function closeModal() { $('#modalBg').classList.remove('open'); document.body.style.overflow = ''; }
+
+function toast(msg) {
+  var t = $('#toast'); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(function () { t.style.display = 'none'; }, 2400);
+}
+
+/* ============================================================
+   Navegação
+   ============================================================ */
+function go(view) {
+  state.view = view; state.gridLimit = 120; state.menuOpen = false;
+  if (view.type !== 'search') { state.q = ''; }
+  render(); window.scrollTo(0, 0);
+}
+
+document.addEventListener('click', function (e) {
+  var t = e.target;
+  if (t.closest('a[href]')) return; // links (baixar / drive) seguem normalmente
+  var el;
+  if ((el = t.closest('[data-fav]'))) { toggleFav(el.getAttribute('data-fav')); return; }
+  if ((el = t.closest('[data-hero]'))) { showHero(Number(el.getAttribute('data-hero'))); return; }
+  if ((el = t.closest('[data-listsort]'))) { state.listSort = el.getAttribute('data-listsort'); render(); return; }
+  // menu de consoles: abre/fecha; clique fora fecha
+  if (t.closest('[data-menu]')) {
+    state.menuOpen = !state.menuOpen;
+    document.querySelectorAll('.menu-wrap').forEach(function (m) { m.classList.toggle('open', state.menuOpen); });
+    return;
+  }
+  if (state.menuOpen && !t.closest('.menu')) {
+    state.menuOpen = false;
+    document.querySelectorAll('.menu-wrap').forEach(function (m) { m.classList.remove('open'); });
+  }
+  if ((el = t.closest('[data-nav]'))) {
+    closeModal(); state.filters = [];
+    state.emuFilter = el.getAttribute('data-emu-for') || null;
+    go({ type: el.getAttribute('data-nav') }); return;
+  }
+  if ((el = t.closest('[data-emu-filter]'))) { state.emuFilter = el.getAttribute('data-emu-filter') || null; render(); return; }
+  if (t.closest('[data-focus-search]')) { var qi = $('#q'); window.scrollTo(0, 0); qi.focus(); qi.select(); return; }
+  if ((el = t.closest('[data-open]'))) { openModal(el.getAttribute('data-open')); return; }
+  if (t.closest('[data-close]') || t.id === 'modalBg') { closeModal(); return; }
+  if ((el = t.closest('[data-console]'))) { closeModal(); state.filters = []; go({ type: 'console', id: el.getAttribute('data-console'), path: [] }); return; }
+  if ((el = t.closest('[data-sub]'))) { go({ type: 'console', id: state.view.id, path: (state.view.path || []).concat([el.getAttribute('data-sub')]) }); return; }
+  if ((el = t.closest('[data-crumb]'))) { go({ type: 'console', id: state.view.id, path: (state.view.path || []).slice(0, Number(el.getAttribute('data-crumb'))) }); return; }
+  if ((el = t.closest('[data-goto]'))) {
+    var g0 = state.byKey[el.getAttribute('data-goto')]; closeModal(); state.filters = []; state.q = '';
+    go({ type: 'console', id: g0.consoleId, path: g0.path.slice() }); return;
+  }
+  if (t.closest('[data-home]')) { closeModal(); state.filters = []; go({ type: 'home' }); return; }
+  if ((el = t.closest('[data-filter]'))) {
+    var id = el.getAttribute('data-filter'), i = state.filters.indexOf(id);
+    if (i >= 0) state.filters.splice(i, 1); else state.filters.push(id);
+    state.gridLimit = 120; render(); return;
+  }
+  if (t.closest('[data-filter-clear]')) { state.filters = []; render(); return; }
+  if ((el = t.closest('[data-sort]'))) { state.sort = el.getAttribute('data-sort'); state.gridLimit = 120; render(); return; }
+  if (t.closest('[data-more]')) { var y = window.scrollY; state.gridLimit += 120; render(); window.scrollTo(0, y); return; }
+  if (t.closest('[data-shuffle]')) { var c = state.byId[state.view.id]; state.featured[c.id] = c.games[Math.floor(Math.random() * c.games.length)]; render(); return; }
+  if ((el = t.closest('[data-fscroll]'))) { var fl = el.parentNode.querySelector('.filters'); fl.scrollBy({ left: fl.clientWidth * 0.7 * Number(el.getAttribute('data-fscroll')) }); return; }
+  if ((el = t.closest('[data-franchise]'))) { go({ type: 'franchise', id: el.getAttribute('data-franchise') }); return; }
+  if ((el = t.closest('[data-franchise-pick]'))) {
+    var fp = FRANCHISES.filter(function (x) { return x.id === el.getAttribute('data-franchise-pick'); })[0];
+    var fl2 = fp ? franchiseGames(fp) : [];
+    if (fl2.length) openModal(fl2[rnd(fl2.length)].key);
+    return;
+  }
+  if ((el = t.closest('[data-raffle-opt]'))) { var ok = el.getAttribute('data-raffle-opt'); state.raffle[ok] = !state.raffle[ok]; resetRaffle(); render(); return; }
+  if (t.closest('[data-spin]')) { spinRaffle(); return; }
+  if ((el = t.closest('[data-syn-more]'))) { var sb = el.closest('.syn'); var op = sb.classList.toggle('open'); el.textContent = op ? 'Ler menos' : 'Ler mais'; return; }
+  if ((el = t.closest('.arrow'))) { var rail = el.parentNode.querySelector('.rail'); rail.scrollBy({ left: rail.clientWidth * 0.85 * Number(el.getAttribute('data-dir')) }); return; }
+  if (t.closest('#refresh')) { load(true); return; }
+});
+
+var qTimer, viewBeforeSearch = { type: 'home' };
+document.addEventListener('input', function (e) {
+  if (e.target.id !== 'q') return;
+  clearTimeout(qTimer);
+  qTimer = setTimeout(function () {
+    var q = e.target.value.trim();
+    if (q) {
+      if (state.view.type !== 'search') {
+        viewBeforeSearch = state.view;
+        // começando a busca dentro de um console: já filtra por ele
+        state.filters = state.view.type === 'console' ? [state.view.id] : [];
+      }
+      state.q = q; state.view = { type: 'search' }; state.gridLimit = 120; render();
+    } else if (state.view.type === 'search') {
+      state.q = ''; state.view = viewBeforeSearch; state.filters = []; render();
+    }
+  }, 160);
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    if ($('#modalBg').classList.contains('open')) return closeModal();
+    if (state.menuOpen) { state.menuOpen = false; document.querySelectorAll('.menu-wrap').forEach(function (m) { m.classList.remove('open'); }); return; }
+    if (state.view.type === 'franchise') { go({ type: 'franchises' }); return; }
+    if (/^(emus|consoles|mylist|raffle|franchises)$/.test(state.view.type)) { if (!state.raffle.spinning) go({ type: 'home' }); return; }
+    if (state.view.type === 'search') { state.q = ''; state.filters = []; go(viewBeforeSearch); return; }
+    if (state.view.type === 'console') {
+      var p = state.view.path || [];
+      if (p.length) go({ type: 'console', id: state.view.id, path: p.slice(0, -1) });
+      else go({ type: 'consoles' });
+    }
+    return;
+  }
+  var typing = /input|textarea|select/i.test(document.activeElement.tagName);
+  if (e.key === ' ' && !typing && state.view.type === 'raffle' && !$('#modalBg').classList.contains('open') && !/button|a/i.test(document.activeElement.tagName)) { e.preventDefault(); spinRaffle(); return; }
+  if (e.key === '/' && !typing) { e.preventDefault(); var q = $('#q'); q.focus(); q.select(); }
+});
+
+/* ============================================================
+   Carregamento
+   ============================================================ */
+function ingest(c, files) {
+  c.games = files.map(function (f) {
+    var p = parseName(f.file, f.folder);
+    return {
+      id: f.id, key: f.id, file: f.file, size: f.size || 0, updated: f.updated, folder: !!f.folder,
+      path: f.path || [],
+      base: p.base, ext: p.ext, title: p.title,
+      tags: p.tags.filter(function (t) { return !/^[0-9a-f]{16}$/i.test(t); }),
+      consoleId: c.id, consoleName: c.name, short: c.info.short, color: c.info.color, sys: c.info.sys,
+      pt: isPtBr(p.base) || c.ptbr,
+      searchKey: norm(p.title + ' ' + p.base + ' ' + c.name + ' ' + c.info.short + ' ' + (f.path || []).join(' '))
+    };
+  });
+  state.all = [];
+  state.consoles.forEach(function (x) { if (x.games) state.all = state.all.concat(x.games); });
+  state.byKey = {};
+  state.all.forEach(function (g) { state.byKey[g.key] = g; });
+}
+
+var renderQueued = false, lastRender = 0;
+function scheduleRender() {
+  // junta várias chegadas de console num redesenho só (no máximo ~1 a cada 0,6 s)
+  if (renderQueued) return;
+  renderQueued = true;
+  var wait = Math.max(0, 600 - (Date.now() - lastRender));
+  setTimeout(function () { requestAnimationFrame(function () {
+    renderQueued = false; lastRender = Date.now();
+    // não redesenha enquanto o usuário rola uma página de console já carregada
+    if (state.view.type === 'console' && state.byId[state.view.id].games && state.renderedConsole === state.view.id) return;
+    var y = window.scrollY; render(); window.scrollTo(0, y);
+    if (state.view.type === 'console' && state.byId[state.view.id].games) state.renderedConsole = state.view.id;
+  }); }, wait);
+}
+
+function load(force) {
+  var btn = $('#refresh'); if (btn) btn.classList.add('spin');
+  state.renderedConsole = null;
+  return call(force ? 'clearCache' : 'getConsoles', false).then(function (list) {
+    var prevView = state.view;
+    state.consoles = list.map(function (c) { return { id: c.id, name: c.name.trim(), info: consoleInfo(c.name), ptbr: isPtBr(c.name), games: null }; });
+    state.byId = {}; state.consoles.forEach(function (c) { state.byId[c.id] = c; });
+    state.all = []; state.byKey = {}; state.heroPicks = null;
+    if (prevView.type === 'console' && !state.byId[prevView.id]) state.view = { type: 'home' };
+    loadCoverIndexes();
+    render();
+    return Promise.all(state.consoles.map(function (c) {
+      return call('getGames', c.id, false)
+        .then(function (files) { ingest(c, files); scheduleRender(); })
+        .catch(function (err) { ingest(c, []); console.error(c.name, err); scheduleRender(); });
+    }));
+  }).then(function () {
+    var b = $('#refresh'); if (b) b.classList.remove('spin');
+    if (force) toast('Lista recarregada do Drive');
+  }).catch(function (err) {
+    app.innerHTML = barHTML('') + '<div class="error-box"><strong>Não consegui ler a pasta do Drive.</strong><br>' +
+      'Confira se o <code>ROOT_FOLDER_ID</code> no <code>Code.gs</code> está certo e se você autorizou o acesso ao Drive.<br>' +
+      '<small style="color:var(--muted)">' + esc(err && err.message || err) + '</small></div>';
+  });
+}
+
+/* ============================================================
+   Dados de exemplo (só usados ao abrir este arquivo fora do Apps Script)
+   ============================================================ */
+var MOCK = (function () {
+  var day = 864e5, now = Date.now();
+  var data = {
+    'SUPER NINTENDO ': ['Breath of Fire I.smc', 'Combatribes, The.sfc', 'The Brainies.sfc', 'Clock Tower.smc', 'Chrono Trigger(PT-BR).smc', 'Super Mario RPG - Legend of the Seven Stars.sfc', 'Dragon Ball Z - Super Butoden.smc', 'Dragon Ball Z - Hyper Dimension.smc', 'Captain Commando.smc', 'Civilization.sfc', '3 Ninjas Kick Back.smc', 'Cliffhanger.sfc', 'Claymates.sfc', 'Brandish.smc', 'Super Mario World (USA).sfc'],
+    'GAME BOY ADVANCE (PT-BR)': ['Yu-Gi-Oh! The Eternal Duelist Soul (BR).gba', 'Yu-Gi-Oh! - The Sacred Cards (BR).gba', 'Yu Yu Hakusho - Tournament Tactics (BR).gba', 'Yu Yu Hakusho - Spirit Detective(br).gba', 'X-Men 3 - The Official Game (BR).gba', 'X-Men 2 - Wolverine\'s Revenge (BR).gba', 'X-Men - Reign of Apocalypse (BR).gba', 'Wario Land 4 (BR).gba', 'Van Helsing (BR).gba', 'Totally Spies! (BR).gba'],
+    'MEGA DRIVE': ['Sonic The Hedgehog 2 (World) (Rev A).md', 'Streets of Rage 2 (USA).md', 'Gunstar Heroes (USA).md', 'Ecco the Dolphin (USA, Europe, Korea).md', 'Shinobi III - Return of the Ninja Master (USA).md', 'Comix Zone (USA).md', 'Phantasy Star IV (USA).md'],
+    'NINTENDO 64': ['Super Mario 64 (USA).z64', 'Legend of Zelda, The - Ocarina of Time (USA) (Rev 2).z64', 'GoldenEye 007 (USA).z64', 'Mario Kart 64 (USA).z64', 'Star Fox 64 (USA) (Rev 1).z64', 'Banjo-Kazooie (USA).z64'],
+    'NINTENDO 64 (PT-BR)': ['Super Mario 64 (PT-BR).z64', 'Paper Mario (PT-BR).z64'],
+    'GAME BOY ADVANCE': ['Pokemon - Emerald Version (USA, Europe).gba', 'Metroid Fusion (USA).gba', 'Golden Sun (USA, Europe).gba', 'Advance Wars (USA).gba', 'Meu Hack Caseiro v2.gba'],
+    'PS1': ['Crash Bandicoot (USA).chd', 'Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 1).chd', 'Final Fantasy VII (USA)/Final Fantasy VII (USA) (Disc 2).chd', 'Castlevania - Symphony of the Night (USA).chd', 'Resident Evil 2 (USA) (Disc 1).chd', 'Spyro the Dragon (USA).chd'],
+    'DREAMCAST': ['Crazy Taxi (USA).chd', 'Jet Grind Radio (USA).chd', 'Sonic Adventure (USA) (En,Ja,Fr,De,Es).chd'],
+    'GAME BOY': ['Tetris (World) (Rev 1).gb', 'Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb', 'Kirby\'s Dream Land (USA, Europe).gb'],
+    'NINTENDO / FAMICOM': ['Super Mario Bros. 3 (USA).nes', 'Mega Man 2 (USA).nes', 'Contra (USA).nes'],
+    'SWITCH ': ['Jogos/The Legend of Zelda Echoes of Wisdom.nsp', 'Jogos/The Legend of Zelda Breath of the Wild.nsp', 'Jogos/Super Mario Party Jamboree.nsp', 'Jogos/Bayonetta 2.nsp', 'Jogos/Super Mario Galaxy 1.xci', 'DLC/The Legend of Zelda Breath of the Wild Switch NSP DLC.rar', 'DLC/Mario Kart 8 Deluxe [DLC Booster Course Pass] [0100152000023001][v65536].nsp', 'DLC/Monster Hunter Rise 264 DLC/Monster Hunter Rise DLC Pack 01.nsp', 'DLC/Monster Hunter Rise 264 DLC/Monster Hunter Rise DLC Pack 02.nsp', 'Updates/Bayonetta 2 Update v1.2.nsp'],
+    'PS VITA': [],
+    'PS4': ['Bloodborne.pkg', 'God of War.pkg'],
+    'NINTENDO WII U': ['Mario Kart 8.wua'],
+    'MEGA DRIVE PTBR': ['Sonic The Hedgehog (PT-BR).md']
+  };
+  var consoles = Object.keys(data).map(function (n, i) { return { id: 'c' + i, name: n }; });
+  return {
+    getConsoles: function () { return consoles; },
+    clearCache: function () { return consoles; },
+    getGames: function (id) {
+      var name = consoles.filter(function (c) { return c.id === id; })[0].name;
+      return data[name].map(function (f, i) {
+        var parts = f.split('/');
+        return { id: id + '_' + i, file: parts.pop(), path: parts,
+          size: Math.round((0.3 + (hash(f) % 700)) * 1024 * 1024 / (/PS1|DREAM|SWITCH/.test(name) ? 1 : 25)),
+          updated: now - (hash(f) % 300) * day };
+      });
+    }
+  };
+})();
+
+window.addEventListener('scroll', function () {
+  document.documentElement.classList.toggle('scrolled', window.scrollY > 8);
+}, { passive: true });
+
+loadFavs();
+render();
+load(false);
+})();
+</script>
+</body>
+</html>

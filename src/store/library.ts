@@ -4,7 +4,8 @@ import { api } from '../lib/api';
 import { loadCoverIndexes } from '../lib/covers';
 import { norm, parseName } from '../lib/format';
 import { isRecompsName, setRecompsId } from '../lib/games';
-import type { ApiFile, Game, GameConsole } from '../types';
+import { idb } from '../lib/idb';
+import type { ApiConsole, ApiFile, Game, GameConsole } from '../types';
 import { useUi } from './ui';
 
 interface LibraryState {
@@ -20,13 +21,35 @@ interface LibraryState {
   byKey: Record<string, Game>;
   status: 'loading' | 'ready' | 'error';
   error: string | null;
-  /** true enquanto ainda tem console chegando do Drive */
+  /** true enquanto confere o Drive (primeira carga ou atualização em segundo plano) */
   refreshing: boolean;
   /** muda quando uma lista de capas termina de carregar (as telas redesenham) */
   coverTick: number;
   /** semente da sessão: embaralha destaques de um jeito estável */
   seed: number;
   load: (force?: boolean) => Promise<void>;
+}
+
+/* Cópia do acervo guardada no navegador (IndexedDB).
+   Com ela o site abre na hora mostrando a última lista conhecida, e o Drive é conferido
+   em segundo plano. Sem ela, cada visita esperava ~36 chamadas ao Apps Script e
+   redesenhava a tela inteira a cada console que chegava. */
+const SNAPSHOT_KEY = 'acervo-v1';
+interface Snapshot {
+  t: number;
+  consoles: { id: string; name: string; files: ApiFile[] }[];
+}
+
+const RECOMPS_INFO = { short: 'PC', color: '#7c5cff', sys: null };
+
+function toConsole(c: ApiConsole): GameConsole {
+  return {
+    id: c.id,
+    name: c.name.trim(),
+    info: isRecompsName(c.name) ? RECOMPS_INFO : consoleInfo(c.name),
+    ptbr: isPtBr(c.name),
+    games: null,
+  };
 }
 
 function toGames(c: GameConsole, files: ApiFile[]): Game[] {
@@ -56,88 +79,128 @@ function toGames(c: GameConsole, files: ApiFile[]): Game[] {
   });
 }
 
-const RECOMPS_INFO = { short: 'PC', color: '#7c5cff', sys: null };
+/** Tudo que se calcula a partir da lista de consoles (índices, lista geral, RECOMPS). */
+function derive(consoles: GameConsole[]) {
+  const recompsId = consoles.find((c) => isRecompsName(c.name))?.id ?? null;
+  setRecompsId(recompsId);
+  const all = consoles.flatMap((c) => c.games || []);
+  return {
+    consoles,
+    recompsId,
+    shelf: consoles.filter((c) => c.id !== recompsId),
+    byId: Object.fromEntries(consoles.map((c) => [c.id, c])),
+    all,
+    byKey: Object.fromEntries(all.map((g) => [g.key, g])),
+  };
+}
+
+function fromSnapshot(snap: Snapshot): GameConsole[] {
+  return snap.consoles.map((s) => {
+    const c = toConsole(s);
+    c.games = toGames(c, s.files);
+    return c;
+  });
+}
 
 let loadId = 0;
 let coverTimer: ReturnType<typeof setTimeout>;
 
-export const useLibrary = create<LibraryState>((set, get) => ({
-  consoles: [],
-  shelf: [],
-  recompsId: null,
-  byId: {},
-  all: [],
-  byKey: {},
-  status: 'loading',
-  error: null,
-  refreshing: false,
-  coverTick: 0,
-  seed: Math.floor(Math.random() * 1e6),
+export const useLibrary = create<LibraryState>((set, get) => {
+  const startCovers = (consoles: GameConsole[]) =>
+    loadCoverIndexes(
+      consoles.map((c) => c.info.sys).filter((s): s is string => !!s),
+      () => {
+        clearTimeout(coverTimer);
+        coverTimer = setTimeout(() => set((s) => ({ coverTick: s.coverTick + 1 })), 250);
+      },
+    );
 
-  async load(force = false) {
-    const myLoad = ++loadId;
-    set({ refreshing: true });
-    try {
-      const list = await api.consoles(force);
-      if (myLoad !== loadId) return;
-      const consoles: GameConsole[] = list.map((c) => ({
-        id: c.id,
-        name: c.name.trim(),
-        info: isRecompsName(c.name) ? RECOMPS_INFO : consoleInfo(c.name),
-        ptbr: isPtBr(c.name),
-        games: null,
-      }));
-      const recompsId = consoles.find((c) => isRecompsName(c.name))?.id ?? null;
-      setRecompsId(recompsId);
-      set({ consoles, recompsId, shelf: consoles.filter((c) => c.id !== recompsId), byId: Object.fromEntries(consoles.map((c) => [c.id, c])), all: [], byKey: {}, status: 'ready', error: null });
+  return {
+    consoles: [],
+    shelf: [],
+    recompsId: null,
+    byId: {},
+    all: [],
+    byKey: {},
+    status: 'loading',
+    error: null,
+    refreshing: false,
+    coverTick: 0,
+    seed: Math.floor(Math.random() * 1e6),
 
-      loadCoverIndexes(
-        consoles.map((c) => c.info.sys).filter((s): s is string => !!s),
-        () => {
-          clearTimeout(coverTimer);
-          coverTimer = setTimeout(() => set((s) => ({ coverTick: s.coverTick + 1 })), 250);
-        },
-      );
+    async load(force = false) {
+      const myLoad = ++loadId;
+      const current = () => myLoad === loadId;
+      set({ refreshing: true });
 
-      // Cada console chega no seu tempo; juntamos as chegadas num redesenho só (a cada ~0,4 s).
-      const arrived = new Map<string, Game[]>();
-      let flushTimer: ReturnType<typeof setTimeout> | undefined;
-      const flush = () => {
-        flushTimer = undefined;
-        if (myLoad !== loadId || !arrived.size) return;
-        const next = get().consoles.map((c) => (arrived.has(c.id) ? { ...c, games: arrived.get(c.id)! } : c));
-        arrived.clear();
-        const all = next.flatMap((c) => c.games || []);
-        set({
-          consoles: next,
-          shelf: next.filter((c) => c.id !== get().recompsId),
-          byId: Object.fromEntries(next.map((c) => [c.id, c])),
-          all,
-          byKey: Object.fromEntries(all.map((g) => [g.key, g])),
-        });
-      };
-      await Promise.all(
-        consoles.map(async (c) => {
-          let files: ApiFile[] = [];
-          try {
-            files = await api.games(c.id);
-          } catch (err) {
-            console.error(c.name, err);
-          }
-          arrived.set(c.id, toGames(c, files));
-          if (!flushTimer) flushTimer = setTimeout(flush, 400);
-        }),
-      );
-      clearTimeout(flushTimer);
-      flush();
-      if (force && myLoad === loadId) useUi.getState().toast('Lista recarregada do Drive');
-    } catch (err) {
-      if (myLoad === loadId) set({ status: 'error', error: err instanceof Error ? err.message : String(err) });
-    } finally {
-      if (myLoad === loadId) set({ refreshing: false });
-    }
-  },
-}));
+      // 1. Abre na hora com a cópia guardada (se tiver).
+      const snap = await idb.get<Snapshot>(SNAPSHOT_KEY);
+      if (!current()) return;
+      const hadSnapshot = !!snap?.consoles?.length;
+      if (hadSnapshot && get().status !== 'ready') {
+        const consoles = fromSnapshot(snap!);
+        set({ ...derive(consoles), status: 'ready', error: null });
+        startCovers(consoles);
+      }
+
+      // 2. Confere o Drive.
+      try {
+        const list = await api.consoles(force);
+        if (!current()) return;
+        const fresh = list.map(toConsole);
+        const files = new Map<string, ApiFile[]>();
+        const failed = new Set<string>();
+
+        if (!hadSnapshot) {
+          // Primeira visita: mostra os consoles conforme chegam (juntando as chegadas a cada ~0,4 s).
+          set({ ...derive(fresh), status: 'ready', error: null });
+          startCovers(fresh);
+        }
+        let flushTimer: ReturnType<typeof setTimeout> | undefined;
+        const flush = () => {
+          flushTimer = undefined;
+          if (!current()) return;
+          set(derive(get().consoles.map((c) => (c.games || !files.has(c.id) ? c : { ...c, games: toGames(c, files.get(c.id)!) }))));
+        };
+
+        await Promise.all(
+          fresh.map(async (c) => {
+            try {
+              files.set(c.id, await api.games(c.id));
+            } catch (err) {
+              console.error(c.name, err);
+              failed.add(c.id);
+              // falhou agora: mantém o que já se sabia desse console em vez de esvaziar
+              files.set(c.id, snap?.consoles.find((s) => s.id === c.id)?.files || []);
+            }
+            if (!hadSnapshot && !flushTimer) flushTimer = setTimeout(flush, 400);
+          }),
+        );
+        clearTimeout(flushTimer);
+        if (!current()) return;
+
+        const next: Snapshot = { t: Date.now(), consoles: list.map((c) => ({ id: c.id, name: c.name, files: files.get(c.id) || [] })) };
+        if (!hadSnapshot) {
+          flush();
+        } else if (JSON.stringify(next.consoles) !== JSON.stringify(snap!.consoles)) {
+          // Já estava na tela pela cópia: só redesenha (uma vez) se algo mudou no Drive.
+          const consoles = fromSnapshot(next);
+          set(derive(consoles));
+          startCovers(consoles);
+          if (!force) useUi.getState().toast('Acervo atualizado');
+        }
+        idb.set(SNAPSHOT_KEY, next);
+        if (force) useUi.getState().toast(failed.size ? `Recarregado, mas ${failed.size} console(s) não responderam` : 'Lista recarregada do Drive');
+      } catch (err) {
+        if (!current()) return;
+        if (hadSnapshot) useUi.getState().toast('Sem resposta do Drive: mostrando a última lista salva');
+        else set({ status: 'error', error: err instanceof Error ? err.message : String(err) });
+      } finally {
+        if (current()) set({ refreshing: false });
+      }
+    },
+  };
+});
 
 /** true se algum console ainda não chegou */
 export const useStillLoading = () => useLibrary((s) => s.status === 'loading' || s.consoles.some((c) => !c.games));

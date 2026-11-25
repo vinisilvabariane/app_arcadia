@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import type { Game } from '../types';
-import { Poster } from './Poster';
+import { Poster, THUMB_IMG_W } from './Poster';
 import { cvar } from './ui';
 
 interface Props {
@@ -31,7 +31,7 @@ export function Tile({ to, color, covers = [], title, subtitle, count, corner, f
         <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-1/2 transition duration-300 group-hover:scale-105">
           {covers.slice(0, 3).map((g, i) => (
             <div key={g.key} className={'absolute w-[84px] rounded-lg ring-1 ring-black/40 ' + FAN[i + (3 - Math.min(3, covers.length))]}>
-              <Poster game={g} w={200} />
+              <Poster game={g} w={THUMB_IMG_W} />
             </div>
           ))}
         </div>

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "covers": "node scripts/fetch-covers.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.80.0",

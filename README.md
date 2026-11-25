@@ -9,7 +9,7 @@ Meu acervo pessoal de jogos: um catálogo estilo streaming das ROMs guardadas no
 - **Minha lista** de favoritos, salva no navegador
 - **Sortear**: roleta que escolhe o que jogar
 - **Emuladores**: links oficiais, filtrados pelos consoles que existem no acervo
-- **Busca** em tudo, capas automáticas (libretro-thumbnails) e sinopse (Wikipédia)
+- **Busca** que respeita onde você está (dentro de um console ou franquia, procura só ali), capas automáticas (libretro-thumbnails) e sinopse (Wikipédia)
 
 ## Tecnologias
 
@@ -22,6 +22,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # confere os tipos e gera a pasta dist/
 npm run preview  # serve a dist/ pra conferir o build
+npm run covers   # (opcional) baixa as listas de capas pra public/covers/
 ```
 
 Para mexer no visual sem depender do Drive, crie um `.env.local` com `VITE_USE_MOCK=1` (veja `.env.example`).
@@ -53,10 +54,10 @@ Onde mexer nas coisas mais comuns:
 ## De onde vêm os dados
 
 - **Jogos**: um Web App do Google Apps Script lista as pastas do Drive (`getConsoles`, `getGames`, `clearCache`). Cada pasta da raiz é um console.
-- **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl.
+- **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
 - **Sinopses**: Wikipédia (português; se não achar, inglês).
 
-Favoritos, listas de capas e sinopses ficam em cache no `localStorage`.
+O acervo fica guardado no navegador (IndexedDB): o site abre na hora com a última lista conhecida e confere o Drive em segundo plano. Favoritos e sinopses ficam no `localStorage`.
 
 ## Publicação (GitHub Pages)
 

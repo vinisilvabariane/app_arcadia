@@ -13,8 +13,13 @@ interface CoverIndex {
   byWord?: Record<string, number[]>;
 }
 
-/** sistema -> índice | 'loading' | null (não deu pra baixar) */
-const COVER_IDX: Record<string, CoverIndex | 'loading' | null> = {};
+/** Lista de nomes de um sistema; o índice de busca só é montado quando alguém precisa dele. */
+interface Loaded {
+  names: string[];
+  idx?: CoverIndex;
+}
+/** sistema -> lista carregada | 'loading' | null (não deu pra baixar) */
+const COVER_IDX: Record<string, Loaded | 'loading' | null> = {};
 const COVER_CACHE_DAYS = 14;
 const TAGS_RE = /\s*[([][^)\]]*[)\]]/g;
 
@@ -144,8 +149,9 @@ function saveMatchMem(sys: string) {
 }
 
 function loadedIdx(sys: string | null): CoverIndex | null {
-  const idx = sys ? COVER_IDX[sys] : null;
-  return idx && idx !== 'loading' ? idx : null;
+  const entry = sys ? COVER_IDX[sys] : null;
+  if (!entry || entry === 'loading') return null;
+  return (entry.idx ??= buildCoverIdx(entry.names));
 }
 
 /** Nome da capa no acervo, ou null. Só funciona depois que a lista do console carregou. */
@@ -195,7 +201,23 @@ export function coverUrls(g: Game, w = 320, blur = false): string[] {
   return [...new Set([g.base, clean + ' (USA)'])].map(px);
 }
 
-async function fetchCoverNames(sys: string): Promise<string[]> {
+/* De onde vêm as listas de nomes:
+   1. covers/<sistema>.json, gerado no build (scripts/fetch-covers.mjs) e servido pelo próprio site.
+      Sem limite de requisições e com cache do navegador.
+   2. Reserva: API do GitHub, guardada no localStorage por 14 dias. Ela aceita só 60 chamadas
+      por hora por IP — numa rede compartilhada estoura fácil, por isso não é mais o caminho principal. */
+async function fetchStatic(sys: string): Promise<string[] | null> {
+  try {
+    const r = await fetch(import.meta.env.BASE_URL + 'covers/' + encodeURIComponent(repoName(sys)) + '.json');
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return null;
+    const names = await r.json();
+    return Array.isArray(names) ? names : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchFromGitHub(sys: string): Promise<string[]> {
   const apiUrl = 'https://api.github.com/repos/libretro-thumbnails/' + repoName(sys) + '/git/trees/';
   const json = async (url: string) => {
     const r = await fetch(url);
@@ -209,28 +231,36 @@ async function fetchCoverNames(sys: string): Promise<string[]> {
   return ((sub.tree || []) as { path: string }[]).map((e) => e.path).filter((p) => /\.png$/i.test(p));
 }
 
-/** Carrega (do cache ou do GitHub) a lista de capas de cada sistema. onChange avisa a tela pra redesenhar. */
+async function loadNames(sys: string): Promise<string[]> {
+  const fromSite = await fetchStatic(sys);
+  if (fromSite) {
+    storage.remove('arc-capas-v1:' + sys); // cópia antiga no localStorage não é mais necessária
+    return fromSite;
+  }
+  const cached = storage.get<{ t: number; names: string } | null>('arc-capas-v1:' + sys, null);
+  if (cached && Date.now() - cached.t < COVER_CACHE_DAYS * 864e5) return cached.names.split('\n');
+  const names = await fetchFromGitHub(sys);
+  storage.set('arc-capas-v1:' + sys, { t: Date.now(), names: names.join('\n') });
+  return names;
+}
+
+/** Carrega a lista de capas de cada sistema. onChange avisa a tela pra redesenhar. */
 export function loadCoverIndexes(systems: string[], onChange: () => void): void {
-  const queue: string[] = [];
-  [...new Set(systems)].forEach((sys) => {
-    if (COVER_IDX[sys]) return;
-    const cached = storage.get<{ t: number; names: string } | null>('arc-capas-v1:' + sys, null);
-    if (cached && Date.now() - cached.t < COVER_CACHE_DAYS * 864e5) {
-      COVER_IDX[sys] = buildCoverIdx(cached.names.split('\n'));
-    } else {
-      COVER_IDX[sys] = 'loading';
-      queue.push(sys);
-    }
-  });
+  const queue = [...new Set(systems)].filter((sys) => !COVER_IDX[sys]);
+  queue.forEach((sys) => (COVER_IDX[sys] = 'loading'));
   const next = (): void => {
     const sys = queue.shift();
     if (!sys) return;
-    fetchCoverNames(sys)
+    loadNames(sys)
       .then((names) => {
-        storage.set('arc-capas-v1:' + sys, { t: Date.now(), names: names.join('\n') });
-        MATCH_MEM[sys] = {};
-        storage.remove('arc-match-v1:' + sys);
-        COVER_IDX[sys] = buildCoverIdx(names);
+        // a lista mudou desde a última visita? então as capas já casadas podem estar velhas
+        const sig = names.length + ':' + names.reduce((n, x) => n + x.length, 0);
+        if (storage.get<string>('arc-capas-sig:' + sys, '') !== sig) {
+          MATCH_MEM[sys] = {};
+          storage.remove('arc-match-v1:' + sys);
+          storage.set('arc-capas-sig:' + sys, sig);
+        }
+        COVER_IDX[sys] = { names };
       })
       .catch((e) => {
         console.warn('capas', sys, e);
@@ -241,8 +271,6 @@ export function loadCoverIndexes(systems: string[], onChange: () => void): void 
         next();
       });
   };
-  // baixa no máximo 3 listas ao mesmo tempo
-  next();
-  next();
-  next();
+  // algumas listas ao mesmo tempo
+  for (let n = 0; n < 6; n++) next();
 }

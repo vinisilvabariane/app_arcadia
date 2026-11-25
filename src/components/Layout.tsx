@@ -1,6 +1,7 @@
 import { Dices, Gamepad2, Heart, Home, Layers, LayoutGrid, Monitor, RefreshCw, Search, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { FRANCHISES } from '../data/franchises';
 import { useFavs } from '../store/favorites';
 import { useLibrary } from '../store/library';
 import { useUi } from '../store/ui';
@@ -22,11 +23,40 @@ function useNavActive() {
   return (n: (typeof NAV)[number]) => pathname === n.to || (n.to !== '/' && pathname.startsWith(n.to + '/')) || (!!n.also && pathname.startsWith(n.also));
 }
 
-/** Campo de busca: digitar leva pra /busca; apagar volta pra onde você estava. */
+/** Onde a busca vale agora: dentro de um console, de uma franquia, ou no acervo todo. */
+function useSearchScope() {
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const byId = useLibrary((s) => s.byId);
+  const recompsId = useLibrary((s) => s.recompsId);
+
+  let c = '';
+  let f = '';
+  const inConsole = pathname.match(/^\/console\/([^/]+)/);
+  const inFranchise = pathname.match(/^\/franquia\/([^/]+)/);
+  if (pathname === '/busca') {
+    c = params.get('c') || '';
+    f = params.get('f') || '';
+  } else if (inConsole) c = decodeURIComponent(inConsole[1]);
+  else if (pathname.startsWith('/recomps')) c = recompsId || '';
+  else if (inFranchise) f = decodeURIComponent(inFranchise[1]);
+
+  const franchise = f ? FRANCHISES.find((x) => x.id === f) : undefined;
+  const one = c && !c.includes(',') ? byId[c] : undefined;
+  return {
+    c,
+    f: franchise ? f : '',
+    label: franchise ? franchise.name : one ? (one.id === recompsId ? 'Recomps' : one.name) : '',
+    color: franchise ? franchise.color : one?.info.color,
+  };
+}
+
+/** Campo de busca: digitar leva pra /busca (já restrita ao console ou franquia aberta); apagar volta pra onde você estava. */
 function SearchBox() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
+  const scope = useSearchScope();
   const onSearch = location.pathname === '/busca';
   const [q, setQ] = useState(onSearch ? params.get('q') || '' : '');
   const before = useRef('/');
@@ -59,15 +89,9 @@ function SearchBox() {
       const text = value.trim();
       if (text) {
         const next = new URLSearchParams({ q: text });
-        if (onSearch) {
-          const c = params.get('c');
-          if (c) next.set('c', c);
-        } else {
-          before.current = location.pathname + location.search;
-          // começando a busca dentro de um console: já filtra por ele
-          const m = location.pathname.match(/^\/console\/([^/]+)/);
-          if (m) next.set('c', decodeURIComponent(m[1]));
-        }
+        if (scope.c) next.set('c', scope.c);
+        if (scope.f) next.set('f', scope.f);
+        if (!onSearch) before.current = location.pathname + location.search;
         navigate('/busca?' + next, { replace: onSearch });
       } else if (onSearch) {
         navigate(before.current, { replace: true });
@@ -83,12 +107,17 @@ function SearchBox() {
         type="search"
         value={q}
         onChange={(e) => change(e.target.value)}
-        placeholder="Buscar em todos os consoles"
-        aria-label="Buscar jogo"
+        placeholder={scope.label ? 'Buscar em ' + scope.label : 'Buscar em todo o acervo'}
+        aria-label={scope.label ? 'Buscar jogo em ' + scope.label : 'Buscar jogo'}
         autoComplete="off"
         className="size-full rounded-lg bg-white/6 pr-9 pl-9.5 text-sm ring-1 ring-line outline-none transition placeholder:text-muted focus:bg-ink-2 focus:ring-2 focus:ring-tint [&::-webkit-search-cancel-button]:hidden"
       />
-      <kbd className="pointer-events-none absolute right-2.5 hidden rounded border border-line px-1.5 font-mono text-[11px] text-muted group-focus-within:hidden md:block">/</kbd>
+      {scope.label ? (
+        // bolinha da cor do console/franquia: avisa que a busca está restrita
+        <span aria-hidden title={'Buscando só em ' + scope.label} className="pointer-events-none absolute right-3 size-2.5 rounded-full" style={{ background: scope.color }} />
+      ) : (
+        <kbd className="pointer-events-none absolute right-2.5 hidden rounded border border-line px-1.5 font-mono text-[11px] text-muted group-focus-within:hidden md:block">/</kbd>
+      )}
     </label>
   );
 }

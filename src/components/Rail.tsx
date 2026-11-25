@@ -11,22 +11,23 @@ interface RailProps {
   /** destino do "Ver tudo" */
   more?: string;
   moreLabel?: string;
+  className?: string;
   children: ReactNode;
 }
 
 /** Fileira que rola de lado, com título e setas (estilo streaming). */
-export function Rail({ title, count, more, moreLabel = 'Ver tudo', children }: RailProps) {
+export function Rail({ title, count, more, moreLabel = 'Ver tudo', className = 'mt-9', children }: RailProps) {
   const rail = useRef<HTMLDivElement>(null);
   const scroll = (dir: number) => rail.current?.scrollBy({ left: rail.current.clientWidth * 0.85 * dir, behavior: 'smooth' });
   const arrow = 'absolute top-[38%] z-10 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-ink-2/95 text-fg shadow-xl ring-1 ring-line transition hover:scale-110 hover:bg-ink-3 group-hover/rail:grid [@media(hover:none)]:!hidden';
 
   return (
-    <section className="mt-9 [contain-intrinsic-size:auto_340px] [content-visibility:auto]">
-      <div className="gutter mb-3 flex items-baseline gap-3">
+    <section className={className + ' [contain-intrinsic-size:auto_340px] [content-visibility:auto]'}>
+      <div className="group/head gutter mb-3 flex items-baseline gap-3">
         <h3 className="font-display text-xl font-bold sm:text-[22px]">{title}</h3>
         {count != null && <span className="font-mono text-xs text-muted">{fmtNum(count)}</span>}
         {more && (
-          <Link to={more} className="ml-auto inline-flex items-center gap-0.5 text-[13px] font-semibold text-muted transition hover:text-fg">
+          <Link to={more} className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-tint-hi opacity-0 transition group-hover/head:opacity-100 hover:underline focus-visible:opacity-100 [@media(hover:none)]:ml-auto [@media(hover:none)]:opacity-100">
             {moreLabel}
             <ChevronRight size={16} strokeWidth={2.6} />
           </Link>

@@ -2,7 +2,7 @@ import { ChevronLeft, Dices } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { GameGrid } from '../components/GameGrid';
-import { Poster } from '../components/Poster';
+import { Poster, THUMB_IMG_W } from '../components/Poster';
 import { GameRail } from '../components/Rail';
 import { Tile, tileGrid } from '../components/Tile';
 import { btnPlay, btnSoft, EmptyBox, PageHero, SectionHead, SortTabs } from '../components/ui';
@@ -114,7 +114,7 @@ export function FranchisePage() {
       <section className="relative overflow-hidden">
         <div aria-hidden className="absolute -inset-x-10 -top-10 grid rotate-[-6deg] grid-cols-6 gap-2 opacity-25 sm:grid-cols-10">
           {mosaic.map((g, i) => (
-            <Poster key={i} game={g} w={200} />
+            <Poster key={i} game={g} w={THUMB_IMG_W} />
           ))}
         </div>
         <div aria-hidden className="absolute inset-0 bg-linear-to-b from-ink/50 via-ink/85 to-ink" />

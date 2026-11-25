@@ -5,6 +5,12 @@ import { useLibrary } from '../store/library';
 import type { Game } from '../types';
 import { PtFlag } from './ui';
 
+/* Largura pedida ao redimensionador = largura do card na tela x densidade da tela.
+   Imagem no tamanho exato baixa mais rápido e o navegador não gasta tempo reduzindo. */
+const DPR = Math.min(2, Math.ceil(window.devicePixelRatio || 1));
+export const CARD_IMG_W = 176 * DPR;
+export const THUMB_IMG_W = 96 * DPR;
+
 interface Props {
   game: Game;
   /** largura da imagem pedida ao redimensionador */
@@ -15,7 +21,7 @@ interface Props {
 }
 
 /** Capa do jogo. Sem capa: gradiente na cor do console com o título escrito. */
-export function Poster({ game: g, w = 256, badge, className = '' }: Props) {
+export function Poster({ game: g, w = CARD_IMG_W, badge, className = '' }: Props) {
   useLibrary((s) => s.coverTick); // redesenha quando a lista de capas chega
   const urls = coverUrls(g, w);
   const [tryIdx, setTryIdx] = useState(0);

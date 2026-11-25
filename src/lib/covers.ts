@@ -2,9 +2,12 @@ import type { Game } from '../types';
 import { storage } from './format';
 
 /* Capas: busca por semelhança no acervo do libretro-thumbnails.
-   Para cada console, baixamos uma vez a lista de nomes das capas (API do GitHub)
-   e guardamos no navegador. Aí comparamos os nomes "simplificados":
-   sem maiúsculas, acentos, pontuação, região, "The"/"A" e sem o "I" final. */
+   Para cada console existe uma lista com os nomes das capas. Comparamos os nomes
+   "simplificados": sem maiúsculas, acentos, pontuação, região, "The"/"A" e sem o "I" final.
+
+   A capa que casou com cada jogo fica guardada no navegador. Então a lista de um console
+   (centenas de KB) só é baixada quando aparece um jogo que ainda não foi resolvido:
+   na primeira visita, ou quando entra jogo novo no acervo. */
 
 interface CoverIndex {
   map: Record<string, string[]>;
@@ -18,8 +21,9 @@ interface Loaded {
   names: string[];
   idx?: CoverIndex;
 }
-/** sistema -> lista carregada | 'loading' | null (não deu pra baixar) */
+/** sistema -> lista carregada | 'loading' | null (não deu pra baixar). Sem entrada = ninguém pediu ainda. */
 const COVER_IDX: Record<string, Loaded | 'loading' | null> = {};
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
 const COVER_CACHE_DAYS = 14;
 const TAGS_RE = /\s*[([][^)\]]*[)\]]/g;
 
@@ -133,7 +137,7 @@ function wordMatch(idx: CoverIndex, name: string): string | null {
 /* Guarda no navegador qual capa casou com cada nome, pra não refazer a busca na próxima visita. */
 const MATCH_MEM: Record<string, Record<string, string>> = {};
 let matchDirty: Record<string, 1> = {};
-let matchTimer: ReturnType<typeof setTimeout>;
+let matchTimer: ReturnType<typeof setTimeout> | undefined;
 
 function matchMem(sys: string) {
   if (!MATCH_MEM[sys]) MATCH_MEM[sys] = storage.get<Record<string, string>>('arc-match-v1:' + sys, {});
@@ -141,11 +145,16 @@ function matchMem(sys: string) {
 }
 function saveMatchMem(sys: string) {
   matchDirty[sys] = 1;
-  clearTimeout(matchTimer);
-  matchTimer = setTimeout(() => {
+  // grava no máximo a cada 1,5 s (e não a cada jogo resolvido)
+  matchTimer ??= setTimeout(() => {
+    matchTimer = undefined;
     Object.keys(matchDirty).forEach((k) => storage.set('arc-match-v1:' + k, MATCH_MEM[k]));
     matchDirty = {};
   }, 1500);
+}
+function forgetMatches(sys: string) {
+  MATCH_MEM[sys] = {};
+  storage.remove('arc-match-v1:' + sys);
 }
 
 function loadedIdx(sys: string | null): CoverIndex | null {
@@ -154,12 +163,17 @@ function loadedIdx(sys: string | null): CoverIndex | null {
   return (entry.idx ??= buildCoverIdx(entry.names));
 }
 
-/** Nome da capa no acervo, ou null. Só funciona depois que a lista do console carregou. */
-function findCover(g: Game): string | null {
-  const idx = loadedIdx(g.sys);
-  if (!idx || !g.sys) return null;
+/** Capa do jogo: o nome dela no acervo, null (não tem) ou undefined (ainda não dá pra saber:
+    a lista do console está a caminho, ou não deu pra baixar). */
+function findCover(g: Game): string | null | undefined {
+  if (!g.sys) return null;
   const mem = matchMem(g.sys);
-  if (Object.prototype.hasOwnProperty.call(mem, g.base)) return mem[g.base] || null;
+  if (own(mem, g.base)) return mem[g.base] || null; // já resolvido: nem precisa da lista
+  const idx = loadedIdx(g.sys);
+  if (!idx) {
+    needList(g.sys);
+    return undefined;
+  }
   const clean = g.base.replace(TAGS_RE, '').trim();
   const tries = [coverKey(clean)];
   if (/\s(I|1)$/i.test(clean)) tries.push(coverKey(clean.replace(/\s(I|1)$/i, '')));
@@ -174,7 +188,7 @@ function findCover(g: Game): string | null {
 /** Tem (ou provavelmente tem) capa? Enquanto a lista não chega, assume que sim. */
 export function hasCover(g: Game): boolean {
   if (!g.sys || g.folder) return false;
-  return !loadedIdx(g.sys) || !!findCover(g);
+  return findCover(g) !== null;
 }
 
 /* As capas originais são PNGs grandes (centenas de KB cada). Passamos pelo wsrv.nl,
@@ -187,15 +201,13 @@ const sized = (raw: string, w: number, extra = '') => IMG_PROXY + encodeURICompo
 /** URLs a tentar, em ordem. w = largura em px; blur = imagem minúscula pra fundo desfocado. */
 export function coverUrls(g: Game, w = 320, blur = false): string[] {
   if (!g.sys) return [];
-  if (COVER_IDX[g.sys] === 'loading') return []; // espera a lista: evita dezenas de tentativas que dão 404
   const repo = 'https://raw.githubusercontent.com/libretro-thumbnails/' + repoName(g.sys) + '/master/Named_Boxarts/';
   const raw = (n: string) => repo + encodeURIComponent(n.replace(/[&*/:`<>?\\|"]/g, '_')) + '.png';
   const px = (n: string) => (blur ? sized(raw(n), 64, '&blur=2') : sized(raw(n), w));
-  if (loadedIdx(g.sys)) {
-    // Lista carregada: usa só o que existe de verdade no acervo.
-    const hit = findCover(g);
-    return hit ? [px(hit)] : [];
-  }
+  const hit = findCover(g);
+  if (hit) return [px(hit)]; // só o que existe de verdade no acervo
+  // sem capa, ou a lista ainda está chegando (esperar evita dezenas de tentativas que dão 404)
+  if (hit === null || COVER_IDX[g.sys] !== null) return [];
   // Lista indisponível: tenta só o nome exato e a versão americana (poucas tentativas, pra não encher a rede de 404).
   const clean = g.base.replace(TAGS_RE, '').trim();
   return [...new Set([g.base, clean + ' (USA)'])].map(px);
@@ -244,20 +256,32 @@ async function loadNames(sys: string): Promise<string[]> {
   return names;
 }
 
-/** Carrega a lista de capas de cada sistema. onChange avisa a tela pra redesenhar. */
-export function loadCoverIndexes(systems: string[], onChange: () => void): void {
-  const queue = [...new Set(systems)].filter((sys) => !COVER_IDX[sys]);
-  queue.forEach((sys) => (COVER_IDX[sys] = 'loading'));
-  const next = (): void => {
-    const sys = queue.shift();
-    if (!sys) return;
+/* Assinatura de uma lista (quantidade:soma dos tamanhos). O script do build grava a mesma conta
+   em covers/manifest.json; é assim que o site percebe que uma lista mudou sem precisar baixá-la. */
+const signature = (names: string[]) => names.length + ':' + names.reduce((n, x) => n + x.length, 0);
+
+let notify: () => void = () => {};
+const queue: string[] = [];
+let running = 0;
+
+/** Pede a lista de um sistema (uma vez só). Quando ela chega, as telas são avisadas pra redesenhar. */
+function needList(sys: string): void {
+  if (own(COVER_IDX, sys)) return;
+  COVER_IDX[sys] = 'loading';
+  queue.push(sys);
+  pump();
+}
+
+function pump(): void {
+  while (running < 4 && queue.length) {
+    const sys = queue.shift()!;
+    running++;
     loadNames(sys)
       .then((names) => {
         // a lista mudou desde a última visita? então as capas já casadas podem estar velhas
-        const sig = names.length + ':' + names.reduce((n, x) => n + x.length, 0);
+        const sig = signature(names);
         if (storage.get<string>('arc-capas-sig:' + sys, '') !== sig) {
-          MATCH_MEM[sys] = {};
-          storage.remove('arc-match-v1:' + sys);
+          forgetMatches(sys);
           storage.set('arc-capas-sig:' + sys, sig);
         }
         COVER_IDX[sys] = { names };
@@ -267,10 +291,63 @@ export function loadCoverIndexes(systems: string[], onChange: () => void): void 
         COVER_IDX[sys] = null;
       })
       .then(() => {
-        onChange();
-        next();
+        running--;
+        notify();
+        pump();
       });
+  }
+}
+
+/** Liga o aviso de "chegou capa nova" e confere se alguma lista mudou desde a última visita. */
+export function initCovers(onChange: () => void): void {
+  notify = onChange;
+  fetch(import.meta.env.BASE_URL + 'covers/manifest.json')
+    .then((r) => (r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : null))
+    .then((manifest: Record<string, string> | null) => {
+      if (!manifest) return;
+      let changed = false;
+      for (const sys of Object.keys(manifest)) {
+        const seen = storage.get<string>('arc-capas-sig:' + sys, '');
+        if (!seen || seen === manifest[sys]) continue;
+        // Lista nova no site: esquece o que estava casado e deixa resolver de novo com ela.
+        forgetMatches(sys);
+        storage.remove('arc-capas-sig:' + sys);
+        if (COVER_IDX[sys] !== 'loading') delete COVER_IDX[sys];
+        changed = true;
+      }
+      if (changed) notify();
+    })
+    .catch(() => {
+      /* sem manifesto (ou sem rede): segue com o que já está guardado */
+    });
+}
+
+/* Resolve em segundo plano a capa de todos os jogos, nos momentos em que o navegador está à toa.
+   Depois disso tudo fica guardado e as próximas visitas não precisam de lista nenhuma. */
+let warmRun = 0;
+const whenIdle: (fn: (d?: IdleDeadline) => void) => void =
+  typeof requestIdleCallback === 'function' ? (fn) => requestIdleCallback(fn, { timeout: 2000 }) : (fn) => setTimeout(fn, 60);
+
+export function warmCovers(games: Game[]): void {
+  const run = ++warmRun;
+  let todo = games.filter((g) => g.sys && !own(matchMem(g.sys), g.base));
+  if (!todo.length) return;
+  const step = (deadline?: IdleDeadline): void => {
+    if (run !== warmRun) return; // chegou um acervo mais novo: essa rodada não vale mais
+    const until = performance.now() + 8;
+    const waiting: Game[] = [];
+    let i = 0;
+    for (; i < todo.length; i++) {
+      if (deadline ? deadline.timeRemaining() < 1 : performance.now() > until) break;
+      // undefined = lista ainda chegando: tenta de novo depois (se a lista falhou, desiste desse jogo)
+      if (findCover(todo[i]) === undefined && COVER_IDX[todo[i].sys!] !== null) waiting.push(todo[i]);
+    }
+    const rest = todo.slice(i);
+    todo = waiting.concat(rest);
+    if (!todo.length) return;
+    // só sobrou jogo esperando lista? dá um tempo pra rede antes de olhar de novo
+    if (rest.length) whenIdle(step);
+    else setTimeout(() => whenIdle(step), 400);
   };
-  // algumas listas ao mesmo tempo
-  for (let n = 0; n < 6; n++) next();
+  whenIdle(step);
 }

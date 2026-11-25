@@ -40,8 +40,8 @@ export function fmtDate(t: number): string {
 
 /** Separa título, tags "(USA)" / "[!]" e extensão a partir do nome do arquivo. */
 export function parseName(file: string, isFolder?: boolean) {
-  const base = isFolder ? file : file.replace(/\.[a-z0-9]{1,5}$/i, '');
-  const m = file.match(/\.([a-z0-9]{1,5})$/i);
+  const m = isFolder ? null : /\.([a-z0-9]{1,5})$/i.exec(file);
+  const base = m ? file.slice(0, m.index) : file;
   const ext = isFolder ? 'pasta' : m ? m[1].toLowerCase() : '';
   const tags: string[] = [];
   const re = /[([]([^)\]]+)[)\]]/g;

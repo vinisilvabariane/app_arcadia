@@ -1,6 +1,6 @@
 import type { Franchise, Game, GameConsole, SortKey } from '../types';
 import { hasCover } from './covers';
-import { hash } from './format';
+import { hash, norm } from './format';
 
 export const downloadUrl = (g: Game) =>
   g.folder ? 'https://drive.google.com/drive/folders/' + g.id : 'https://drive.google.com/uc?export=download&id=' + g.id;
@@ -86,8 +86,18 @@ function franchiseKey(g: Game): string {
   }
   return k;
 }
-export const franchiseGames = (all: Game[], f: Franchise) =>
-  all.filter((g) => !g.folder && !isExtra(g) && f.re.test(franchiseKey(g)));
+
+/* Jogos de cada franquia. Testar ~40 expressões em milhares de títulos custa caro, então o
+   resultado fica guardado enquanto a lista do acervo for a mesma: voltar pro Início ou abrir
+   Franquias de novo não refaz a conta. Quem recebe a lista não pode alterá-la (use .slice()). */
+const franchiseCache = new WeakMap<Game[], { playable: Game[]; byId: Map<string, Game[]> }>();
+export function franchiseGames(all: Game[], f: Franchise): Game[] {
+  let cache = franchiseCache.get(all);
+  if (!cache) franchiseCache.set(all, (cache = { playable: all.filter((g) => !g.folder && !isExtra(g)), byId: new Map() }));
+  let list = cache.byId.get(f.id);
+  if (!list) cache.byId.set(f.id, (list = cache.playable.filter((g) => f.re.test(franchiseKey(g)))));
+  return list;
+}
 
 /** consoles (sem repetir) dos jogos de uma lista, na ordem em que aparecem */
 export function consolesOf(list: Game[], byId: Record<string, GameConsole>): GameConsole[] {
@@ -101,7 +111,14 @@ export function consolesOf(list: Game[], byId: Record<string, GameConsole>): Gam
   return out;
 }
 
+/* Texto de busca de cada jogo (título, arquivo, console e pastas, tudo "simplificado").
+   Só é montado na primeira busca: montar pra todos ao abrir o site atrasava a abertura. */
+const searchKey = (g: Game) => (g.searchKey ??= norm([g.title, g.base, g.consoleName, g.short, ...g.path].join(' ')));
+
 export function searchGames(all: Game[], q: string): Game[] {
-  const terms = q.toLowerCase().split(/\s+/).map((t) => t.normalize('NFD').replace(/[^\x00-\x7F]/g, '').replace(/[^a-z0-9]/g, '')).filter(Boolean);
-  return all.filter((g) => terms.every((t) => g.searchKey.includes(t)));
+  const terms = q.toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+  return all.filter((g) => {
+    const key = searchKey(g);
+    return terms.every((t) => key.includes(t));
+  });
 }

@@ -42,7 +42,8 @@ export function Poster({ game: g, w = CARD_IMG_W, badge, className = '' }: Props
         <span className="line-clamp-4 font-display text-[15px] leading-[1.05] font-extrabold text-white [font-variation-settings:'wdth'_80]">{g.title}</span>
       </div>
       {src && (
-        <img key={src} src={src} alt="" loading="lazy" decoding="async" onError={() => setTryIdx((i) => i + 1)} className="absolute inset-0 size-full object-cover" />
+        // crossOrigin: sem ele o service worker não consegue guardar a capa (resposta "opaca")
+        <img key={src} src={src} alt="" crossOrigin="anonymous" loading="lazy" decoding="async" onError={() => setTryIdx((i) => i + 1)} className="absolute inset-0 size-full object-cover" />
       )}
       {badge && g.ext && <span className="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] text-white uppercase">{g.ext}</span>}
       {g.pt && <PtFlag className="absolute top-2 left-2" />}

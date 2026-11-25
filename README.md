@@ -57,7 +57,18 @@ Onde mexer nas coisas mais comuns:
 - **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
 - **Sinopses**: Wikipédia (português; se não achar, inglês).
 
-O acervo fica guardado no navegador (IndexedDB): o site abre na hora com a última lista conhecida e confere o Drive em segundo plano. Favoritos e sinopses ficam no `localStorage`.
+### O que fica guardado no navegador
+
+Na primeira visita o site baixa tudo e guarda; nas seguintes abre do que está guardado.
+
+| O quê | Onde | Quando atualiza |
+| --- | --- | --- |
+| Acervo (lista de jogos do Drive) | IndexedDB | Se a cópia tem mais de 12 h, ou pelo botão de recarregar |
+| Qual capa casou com cada jogo | `localStorage` | Quando entra jogo novo ou a lista de capas muda (`covers/manifest.json`) |
+| Imagens das capas, JS/CSS, fontes | Cache do service worker (`public/sw.js`) | Capas e fontes nunca; JS/CSS a cada versão publicada |
+| Favoritos e sinopses | `localStorage` | — |
+
+O service worker só é registrado na versão publicada (`npm run build`), não no `npm run dev`. Para testar o cache localmente: `npm run build && npm run preview`.
 
 ## Publicação (GitHub Pages)
 

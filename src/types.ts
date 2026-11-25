@@ -40,7 +40,8 @@ export interface Game {
   color: string;
   sys: string | null;
   pt: boolean;
-  searchKey: string;
+  /** texto de busca; só é montado na primeira busca (ver searchGames) */
+  searchKey?: string;
 }
 
 export interface GameConsole {

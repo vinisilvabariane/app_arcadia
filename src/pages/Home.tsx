@@ -77,7 +77,7 @@ function Hero({ picks }: { picks: Game[] }) {
     <section className={frame} onMouseEnter={() => (hover.current = true)} onMouseLeave={() => (hover.current = false)}>
       {/* fundo: a própria capa, ampliada e escurecida (fica suave por estar esticada) */}
       <div key={g.key + 'bg'} aria-hidden className="absolute inset-0 animate-fade" style={{ background: `color-mix(in srgb, ${g.color} 45%, #0b0c12)` }}>
-        {art && <img src={art} alt="" className="size-full object-cover object-[50%_22%] opacity-55" />}
+        {art && <img src={art} alt="" crossOrigin="anonymous" className="size-full object-cover object-[50%_22%] opacity-55" />}
       </div>
       <div aria-hidden className="absolute inset-0 bg-[linear-gradient(to_right,#0b0c12_0%,rgb(11_12_18/.86)_32%,rgb(11_12_18/.25)_72%,rgb(11_12_18/.5)_100%)]" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-32 bg-linear-to-b from-ink/80 to-transparent" />
@@ -255,7 +255,6 @@ export function Home() {
     return (withCover.length >= 10 ? withCover : newest).slice(0, 10);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all, coverTick]);
-  const recent = useMemo(() => byNewest(all, 20), [all]);
   const pt = useMemo(() => {
     const list = all.filter((g) => g.pt);
     return { total: list.length, row: rowOrder(list).slice(0, 20) };
@@ -292,9 +291,6 @@ export function Home() {
 
       <LazyMount height={220}>
         <Collections />
-      </LazyMount>
-      <LazyMount>
-        <GameRail title="Adicionados recentemente" games={recent} />
       </LazyMount>
       <LazyMount>
         <GameRail title="Em português" games={pt.row} count={pt.total} />

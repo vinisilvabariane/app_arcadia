@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { consoleInfo, isPtBr } from '../data/consoles';
 import { api } from '../lib/api';
-import { loadCoverIndexes } from '../lib/covers';
-import { norm, parseName } from '../lib/format';
+import { initCovers, warmCovers } from '../lib/covers';
+import { parseName } from '../lib/format';
 import { isRecompsName, setRecompsId } from '../lib/games';
 import { idb } from '../lib/idb';
 import type { ApiConsole, ApiFile, Game, GameConsole } from '../types';
@@ -35,6 +35,8 @@ interface LibraryState {
    em segundo plano. Sem ela, cada visita esperava ~36 chamadas ao Apps Script e
    redesenhava a tela inteira a cada console que chegava. */
 const SNAPSHOT_KEY = 'acervo-v1';
+/** Por quanto tempo a cópia vale sem conferir o Drive de novo. */
+const FRESH_MS = 12 * 60 * 60 * 1000;
 interface Snapshot {
   t: number;
   consoles: { id: string; name: string; files: ApiFile[] }[];
@@ -73,8 +75,7 @@ function toGames(c: GameConsole, files: ApiFile[]): Game[] {
       short: c.info.short,
       color: c.info.color,
       sys: c.info.sys,
-      pt: isPtBr(p.base) || c.ptbr,
-      searchKey: norm([p.title, p.base, c.name, c.info.short, ...path].join(' ')),
+      pt: c.ptbr || isPtBr(p.base),
     };
   });
 }
@@ -106,14 +107,13 @@ let loadId = 0;
 let coverTimer: ReturnType<typeof setTimeout>;
 
 export const useLibrary = create<LibraryState>((set, get) => {
-  const startCovers = (consoles: GameConsole[]) =>
-    loadCoverIndexes(
-      consoles.map((c) => c.info.sys).filter((s): s is string => !!s),
-      () => {
-        clearTimeout(coverTimer);
-        coverTimer = setTimeout(() => set((s) => ({ coverTick: s.coverTick + 1 })), 250);
-      },
-    );
+  // Uma lista de capas chegou: redesenha as telas (juntando as chegadas próximas numa só).
+  initCovers(() => {
+    clearTimeout(coverTimer);
+    coverTimer = setTimeout(() => set((s) => ({ coverTick: s.coverTick + 1 })), 250);
+  });
+  /** Resolve em segundo plano as capas que ainda faltam (na primeira visita: todas). */
+  const startCovers = (consoles: GameConsole[]) => warmCovers(consoles.flatMap((c) => c.games || []));
 
   return {
     consoles: [],
@@ -143,7 +143,13 @@ export const useLibrary = create<LibraryState>((set, get) => {
         startCovers(consoles);
       }
 
-      // 2. Confere o Drive.
+      // 2. Cópia recente: fica com ela e não incomoda o Drive. O botão de recarregar força a conferência.
+      if (hadSnapshot && !force && Date.now() - snap!.t < FRESH_MS) {
+        set({ refreshing: false });
+        return;
+      }
+
+      // 3. Confere o Drive.
       try {
         const list = await api.consoles(force);
         if (!current()) return;
@@ -154,7 +160,6 @@ export const useLibrary = create<LibraryState>((set, get) => {
         if (!hadSnapshot) {
           // Primeira visita: mostra os consoles conforme chegam (juntando as chegadas a cada ~0,4 s).
           set({ ...derive(fresh), status: 'ready', error: null });
-          startCovers(fresh);
         }
         let flushTimer: ReturnType<typeof setTimeout> | undefined;
         const flush = () => {
@@ -182,6 +187,7 @@ export const useLibrary = create<LibraryState>((set, get) => {
         const next: Snapshot = { t: Date.now(), consoles: list.map((c) => ({ id: c.id, name: c.name, files: files.get(c.id) || [] })) };
         if (!hadSnapshot) {
           flush();
+          startCovers(get().consoles);
         } else if (JSON.stringify(next.consoles) !== JSON.stringify(snap!.consoles)) {
           // Já estava na tela pela cópia: só redesenha (uma vez) se algo mudou no Drive.
           const consoles = fromSnapshot(next);

@@ -1,5 +1,6 @@
 // Gera public/covers/<sistema>.json: a lista de nomes das capas de cada console
-// no acervo libretro-thumbnails. Roda no deploy (GitHub Actions), antes do build.
+// no acervo libretro-thumbnails, e public/covers/manifest.json com a assinatura de cada lista.
+// Roda no deploy (GitHub Actions), antes do build.
 //
 // Por que no build e não no navegador: a API do GitHub aceita só 60 chamadas por hora
 // por IP sem login. No navegador isso estourava e o site ficava sem capas.
@@ -57,6 +58,10 @@ async function namesViaApi(sys) {
 
 await mkdir(OUT, { recursive: true });
 let ok = 0;
+// manifest.json: uma "assinatura" curta de cada lista (quantidade:soma dos tamanhos dos nomes).
+// O site compara com a que tem guardada e só baixa de novo a lista que mudou.
+// A conta tem que ser a mesma de signature() em src/lib/covers.ts.
+const manifest = {};
 const queue = [...systems];
 await Promise.all(
   Array.from({ length: 4 }, async () => {
@@ -64,6 +69,7 @@ await Promise.all(
       try {
         const list = await namesViaApi(sys).catch(() => namesViaGit(sys));
         await writeFile(new URL(sys.replace(/ /g, '_') + '.json', OUT), JSON.stringify(list));
+        manifest[sys] = list.length + ':' + list.reduce((n, x) => n + x.length, 0);
         console.log(`  ${sys}: ${list.length} capas`);
         ok++;
       } catch (e) {
@@ -73,4 +79,5 @@ await Promise.all(
     }
   }),
 );
+await writeFile(new URL('manifest.json', OUT), JSON.stringify(manifest));
 console.log(`capas: ${ok}/${systems.length} listas geradas`);

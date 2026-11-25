@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FavButton } from '../components/FavButton';
 import { GameGrid } from '../components/GameGrid';
+import { PlayButton } from '../components/PlayButton';
 import { Poster, useBlurBg } from '../components/Poster';
 import { GameRail } from '../components/Rail';
 import { Tile, tileGrid } from '../components/Tile';
@@ -53,6 +54,7 @@ function Billboard({ game: g, console: c, onShuffle }: { game: Game; console: Ga
             {g.size > 0 && <span className="ml-1 font-mono text-xs text-muted">{fmtSize(g.size)}</span>}
           </div>
           <div className="mt-5 flex flex-wrap gap-2">
+            <PlayButton game={g} />
             <a className={btnPlay} href={downloadUrl(g)} target="_blank" rel="noopener">
               <Download size={18} strokeWidth={2.6} />
               {g.folder ? 'Abrir pasta' : 'Baixar'}

@@ -8,6 +8,8 @@ const btnBase =
   'inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold whitespace-nowrap transition active:scale-[.97] disabled:opacity-40 disabled:pointer-events-none';
 /** botão principal (Baixar) */
 export const btnPlay = btnBase + ' bg-fg text-ink hover:bg-white';
+/** botão "Jogar": na cor da página, pra não brigar com o Baixar */
+export const btnGo = btnBase + ' bg-tint-hi text-ink hover:brightness-110';
 /** botão secundário */
 export const btnSoft = btnBase + ' bg-white/12 text-fg hover:bg-white/20';
 

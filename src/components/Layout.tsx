@@ -1,7 +1,8 @@
-import { Dices, Gamepad2, Heart, Home, Layers, LayoutGrid, Monitor, RefreshCw, Search, type LucideIcon } from 'lucide-react';
+import { Dices, Gamepad2, Heart, Home, Layers, LayoutGrid, Monitor, RefreshCw, Search, Settings, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { FRANCHISES } from '../data/franchises';
+import { PLAY_ENABLED } from '../lib/play';
 import { useFavs } from '../store/favorites';
 import { useLibrary } from '../store/library';
 import { useUi } from '../store/ui';
@@ -158,6 +159,16 @@ function TopBar() {
         })}
       </nav>
       <SearchBox />
+      {PLAY_ENABLED && (
+        <Link
+          to="/cache"
+          title="Cache e saves"
+          aria-label="Cache e saves"
+          className="grid size-10 shrink-0 place-items-center rounded-lg text-muted ring-1 ring-line transition hover:bg-white/5 hover:text-fg"
+        >
+          <Settings size={17} strokeWidth={2.2} />
+        </Link>
+      )}
       <button
         onClick={() => load(true)}
         disabled={refreshing}

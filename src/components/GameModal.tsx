@@ -7,6 +7,7 @@ import { useLibrary } from '../store/library';
 import { useUi } from '../store/ui';
 import { FavButton } from './FavButton';
 import { GameCard } from './GameCard';
+import { PlayButton } from './PlayButton';
 import { Poster, useBlurBg } from './Poster';
 import { Synopsis } from './Synopsis';
 import { btnPlay, btnSoft, Tag } from './ui';
@@ -76,6 +77,7 @@ export function GameModal() {
               <span>adicionado em {fmtDate(g.updated)}</span>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
+              <PlayButton game={g} />
               <a ref={mainBtn} className={btnPlay} href={downloadUrl(g)} target="_blank" rel="noopener">
                 <Download size={18} strokeWidth={2.6} />
                 {g.folder ? 'Abrir pasta no Drive' : 'Baixar ROM'}

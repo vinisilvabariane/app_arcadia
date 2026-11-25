@@ -3,6 +3,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FavButton } from '../components/FavButton';
 import { GameCard } from '../components/GameCard';
+import { PlayButton } from '../components/PlayButton';
 import { Poster, THUMB_IMG_W } from '../components/Poster';
 import { GameRail, LazyMount, Rail } from '../components/Rail';
 import { cvar, PtFlag } from '../components/ui';
@@ -105,6 +106,7 @@ function Hero({ picks }: { picks: Game[] }) {
           </div>
           {synopsis && <p className="mt-4 line-clamp-3 max-w-xl animate-fade text-[15px] leading-relaxed text-fg/80">{synopsis}</p>}
           <div className="mt-6 flex flex-wrap gap-2.5">
+            <PlayButton game={g} className="h-12! px-6 text-base" />
             <a href={downloadUrl(g)} target="_blank" rel="noopener" className="inline-flex h-12 items-center gap-2.5 rounded-lg bg-fg px-7 text-base font-bold text-ink transition hover:bg-white active:scale-[.97]">
               <Download size={20} strokeWidth={2.8} />
               Baixar

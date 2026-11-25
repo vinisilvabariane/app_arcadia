@@ -3,3 +3,7 @@ dist
 .env.local
 *.log
 public/covers
+
+# arquivos de teste da prova de conceito (ROMs): nunca vão pro repositório
+public/_poc
+public/poc.html

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Arcádia: player</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      #game {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <script>
+      /* Quadro do emulador (EmulatorJS). Roda dentro de um <iframe> criado pela tela Jogar
+         (src/pages/Play.tsx).
+
+         Por que um iframe: o EmulatorJS não tem "desligar" completo (o evento "exit" para o
+         jogo, mas deixa canvas, áudio e variáveis globais pra trás). Jogando fora o iframe,
+         o navegador libera tudo de uma vez, e dá pra abrir outro jogo sem recarregar o site.
+
+         A tela chama window.startGame(cfg) depois que este arquivo carrega:
+           cfg.dataPath  pasta "data/" do EmulatorJS (CDN, versão fixa)
+           cfg.blob      Blob com a ROM
+           cfg.fileName  nome original do arquivo (o emulador identifica o formato pela extensão)
+           cfg.core      núcleo ("snes", "gba"…)
+           cfg.gameName  identificador estável do jogo (vira a chave das configurações dele)
+           cfg.color     cor de destaque          cfg.biosUrl  opcional
+           cfg.sram      Uint8Array opcional: save de bateria a restaurar quando o jogo iniciar
+           cfg.on        { start(sramOk), saveState(data), loadState(), sram(bytes), escape(), error(msg) } */
+      window.startGame = function (cfg) {
+        var on = cfg.on || {};
+        // O File precisa ser criado AQUI dentro: o emulador testa "instanceof File",
+        // e um File criado na página de fora é de outra "janela" e não passa no teste.
+        window.EJS_gameUrl = new File([cfg.blob], cfg.fileName);
+        window.EJS_player = '#game';
+        window.EJS_core = cfg.core;
+        window.EJS_gameName = cfg.gameName;
+        window.EJS_pathtodata = cfg.dataPath;
+        window.EJS_startOnLoaded = true;
+        window.EJS_language = 'pt-BR';
+        if (cfg.color) window.EJS_color = cfg.color;
+        if (cfg.biosUrl) window.EJS_biosUrl = cfg.biosUrl;
+        // Sem EJS_threads: o GitHub Pages não envia os cabeçalhos COOP/COEP que as threads exigem.
+        // O cache de ROMs do próprio emulador fica desligado: quem guarda ROM é o site, com limite.
+        window.EJS_CacheLimit = 0;
+        // grava o save de bateria a cada 30 s (o padrão é 5 min: fechar a aba perderia muito)
+        window.EJS_defaultOptions = { 'save-save-interval': '30' };
+
+        window.EJS_ready = function () {
+          // O emulador avisa toda vez que grava o save de bateria (no intervalo acima e ao sair).
+          window.EJS_emulator.on('saveSaveFiles', function (bytes) {
+            if (bytes && bytes.length && on.sram) on.sram(bytes);
+          });
+        };
+        window.EJS_onGameStart = function () {
+          var ok = true;
+          if (cfg.sram) ok = restoreSram(cfg.sram);
+          if (on.start) on.start(ok);
+        };
+        // Definir estes dois ganchos desliga o padrão do emulador (que é baixar/pedir um arquivo).
+        window.EJS_onSaveState = function (data) {
+          if (on.saveState) on.saveState(data);
+        };
+        window.EJS_onLoadState = function () {
+          if (on.loadState) on.loadState();
+        };
+
+        var script = document.createElement('script');
+        script.src = cfg.dataPath + 'loader.js';
+        script.onerror = function () {
+          if (on.error) on.error('Não deu pra carregar o emulador (cdn.emulatorjs.org). Confira a internet.');
+        };
+        document.body.appendChild(script);
+
+        // Esc com o foco dentro do jogo não chega na página de fora: repassa (fora da tela cheia,
+        // onde o Esc já serve pra sair dela).
+        window.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && !document.fullscreenElement && on.escape) on.escape();
+        });
+      };
+
+      /* Põe o save de bateria no lugar onde o núcleo procura, manda recarregar e reinicia o jogo
+         (ele já tinha ligado sem o save). Devolve false se não deu. */
+      function restoreSram(bytes) {
+        try {
+          var gm = window.EJS_emulator.gameManager;
+          var path = gm.getSaveFilePath();
+          if (!path) return false;
+          var parts = path.split('/');
+          var dir = '';
+          for (var i = 0; i < parts.length - 1; i++) {
+            if (!parts[i]) continue;
+            dir += '/' + parts[i];
+            if (!gm.FS.analyzePath(dir).exists) gm.FS.mkdir(dir);
+          }
+          if (gm.FS.analyzePath(path).exists) gm.FS.unlink(path);
+          gm.FS.writeFile(path, bytes);
+          gm.loadSaveFiles();
+          gm.restart();
+          return true;
+        } catch (e) {
+          console.warn('save de bateria não restaurado', e);
+          return false;
+        }
+      }
+
+      /** Carrega um save state (Uint8Array) no jogo em andamento. */
+      window.loadState = function (bytes) {
+        window.EJS_emulator.gameManager.loadState(bytes);
+      };
+      /** Grava o save de bateria e para o jogo. A tela chama antes de jogar o iframe fora. */
+      window.stopGame = function () {
+        try {
+          if (window.EJS_emulator && window.EJS_emulator.started) window.EJS_emulator.callEvent('exit');
+        } catch (e) {
+          /* já estava parado */
+        }
+      };
+    </script>
+  </body>
+</html>

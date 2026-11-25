@@ -67,7 +67,8 @@ async function dropOldAssets(cache, page) {
     const html = await page.text();
     for (const request of await cache.keys()) {
       const file = request.url.split('/assets/')[1];
-      if (file && !html.includes('assets/' + file)) await cache.delete(request);
+      // só os arquivos principais (index-*): as telas baixadas sob demanda não aparecem no index.html
+      if (file && file.startsWith('index-') && !html.includes('assets/' + file)) await cache.delete(request);
     }
   } catch {
     /* limpeza é só capricho: se falhar, segue */

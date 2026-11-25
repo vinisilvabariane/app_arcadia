@@ -1,6 +1,7 @@
 import { ChevronDown, Dices, Download, Info } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FavButton } from '../components/FavButton';
+import { PlayButton } from '../components/PlayButton';
 import { Poster } from '../components/Poster';
 import { GameRail } from '../components/Rail';
 import { Synopsis } from '../components/Synopsis';
@@ -300,6 +301,7 @@ export function Raffle() {
               </div>
               <Synopsis game={winner} />
               <div className="mt-5 flex flex-wrap gap-2">
+                <PlayButton game={winner} />
                 <a className={btnPlay} href={downloadUrl(winner)} target="_blank" rel="noopener">
                   <Download size={18} strokeWidth={2.6} />
                   Baixar

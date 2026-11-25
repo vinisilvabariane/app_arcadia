@@ -57,6 +57,25 @@ Onde mexer nas coisas mais comuns:
 - **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
 - **Sinopses**: Wikipédia (português; se não achar, inglês).
 
+### Jogar no navegador
+
+Jogos de NES, SNES, Game Boy/Color/Advance, Mega Drive, Master System, Game Gear, DS, PC Engine e Atari 2600 ganham o botão **Jogar** (N64 e PS1 como experimentais). A ROM é buscada direto da API do Drive, guardada no navegador e rodada no [EmulatorJS](https://emulatorjs.org) dentro de um iframe (`public/player.html`).
+
+O recurso fica **desligado até existir uma chave de API**:
+
+1. No [Google Cloud](https://console.cloud.google.com), crie um projeto e ative a **Google Drive API**.
+2. Em Credenciais, crie uma **chave de API**. Restrinja a chave à Drive API e aos sites `https://SEU-USUARIO.github.io/*` e `http://localhost:5173/*`.
+3. Coloque a chave em `DEFAULT_DRIVE_API_KEY` (`src/data/play.ts`). Ela é pública por natureza: a proteção são as restrições do passo 2.
+
+Detalhes:
+
+- **Onde mexer:** `src/data/play.ts` tem a tabela console → núcleo (`PLAY_CORES`), a versão do EmulatorJS e os limites do cache.
+- **Cache de ROMs:** limite de 1 GB (ajustável na tela *Cache e saves*). Quando enche, saem as jogadas há mais tempo.
+- **Saves:** save de bateria e save state ficam num banco separado, pela identificação do arquivo no Drive, e nunca são apagados pela limpeza do cache. Dá pra exportar e importar em `.json`.
+- **Sem threads:** o GitHub Pages não envia os cabeçalhos COOP/COEP, então núcleos que exigem threads (PSP, DOS) ficam de fora e N64/PS1 podem pesar.
+- **Uso pessoal:** só funciona com arquivos compartilhados como "qualquer pessoa com o link". Não divulgue o endereço do site.
+- **Testar sem chave:** `VITE_PLAY_DEV_ROM=_poc/arquivo.zip` no `.env.local` faz o `npm run dev` usar um arquivo de `public/_poc/` no lugar do Drive.
+
 ### O que fica guardado no navegador
 
 Na primeira visita o site baixa tudo e guarda; nas seguintes abre do que está guardado.

@@ -12,8 +12,11 @@ export function Consoles() {
   useTint(HOME_TINT);
   const consoles = useLibrary((s) => s.shelf);
   const all = useLibrary((s) => s.all);
-  useLibrary((s) => s.coverTick);
+  const coverTick = useLibrary((s) => s.coverTick);
   const loading = useStillLoading();
+  // capas do leque de cada console: calcula uma vez por mudança, não a cada redesenho
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fans = useMemo(() => new Map(consoles.map((c) => [c.id, c.games ? pickCovers(c.games, 3) : []])), [consoles, coverTick]);
   const recent = useMemo(() => byNewest(all, 30), [all]);
 
   return (
@@ -34,7 +37,7 @@ export function Consoles() {
               key={c.id}
               to={consolePath(c.id)}
               color={c.info.color}
-              covers={c.games ? pickCovers(c.games, 3) : []}
+              covers={fans.get(c.id)}
               title={c.info.short}
               subtitle={c.name.replace(/\([^)]*\)/g, '').trim()}
               count={c.games ? plural(c.games.length, 'jogo', 'jogos') : 'carregando…'}

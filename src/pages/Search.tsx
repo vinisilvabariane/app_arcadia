@@ -44,7 +44,7 @@ export function SearchPage() {
     <>
       <section className="gutter pt-8">
         <h2 className="font-display text-3xl font-bold sm:text-4xl">
-          Resultados para <em className="text-tint brightness-150 not-italic">{q}</em>
+          Resultados para <em className="text-tint-hi not-italic">{q}</em>
         </h2>
         <div className="mt-2 text-sm text-muted">
           {plural(shown.length, 'jogo encontrado', 'jogos encontrados')}

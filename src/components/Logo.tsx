@@ -17,7 +17,7 @@ export function Logo() {
         <rect x="17.6" y="25.2" width="4.8" height="2.6" rx="1.3" fill="#fff" />
       </svg>
       <span className="display hidden text-2xl tracking-wide sm:block">
-        ARC<span className="text-tint brightness-125">Á</span>DIA
+        ARC<span className="text-tint-hi">Á</span>DIA
       </span>
     </span>
   );

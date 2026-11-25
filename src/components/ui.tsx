@@ -15,7 +15,7 @@ export const btnSoft = btnBase + ' bg-white/12 text-fg hover:bg-white/20';
 export const cvar = (color: string, extra?: CSSProperties) => ({ '--c': color, ...extra }) as CSSProperties;
 
 export function Eyebrow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={'text-xs font-bold tracking-[.14em] uppercase text-tint brightness-150 ' + className}>{children}</div>;
+  return <div className={'text-xs font-bold tracking-[.14em] uppercase text-tint-hi ' + className}>{children}</div>;
 }
 
 /** Cabeçalho de página: sobrelinha, título gigante e uma frase. */
@@ -97,7 +97,7 @@ export function ChipStrip({ label, centerOn, children }: { label: string; center
     if (el && on) el.scrollLeft = on.offsetLeft - el.clientWidth / 2 + on.offsetWidth / 2;
   }, [centerOn]);
   return (
-    <nav ref={nav} aria-label={label} className="no-scrollbar fade-x gutter relative flex gap-2 overflow-x-auto py-3">
+    <nav ref={nav} aria-label={label} className="no-scrollbar gutter relative flex gap-2 overflow-x-auto py-3">
       {children}
     </nav>
   );

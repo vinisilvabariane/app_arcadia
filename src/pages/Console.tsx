@@ -37,7 +37,7 @@ function Billboard({ game: g, console: c, onShuffle }: { game: Game; console: Ga
   const openGame = useUi((s) => s.openGame);
   return (
     <section className="relative overflow-hidden">
-      <div aria-hidden className="absolute inset-0 scale-125 bg-cover bg-center opacity-40 blur-3xl" style={bg ? { backgroundImage: `url('${bg}')` } : { background: c.info.color }} />
+      <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-40" style={bg ? { backgroundImage: `url('${bg}')` } : { background: c.info.color }} />
       <div aria-hidden className="absolute inset-0 bg-linear-to-b from-transparent to-ink" />
       <div key={g.key} className="gutter relative flex animate-rise flex-col gap-6 py-8 sm:flex-row sm:items-center sm:gap-9 sm:py-12">
         <div className="w-36 shrink-0 sm:w-52">

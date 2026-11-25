@@ -15,7 +15,7 @@ export const GameCard = memo(function GameCard({ game: g, className = '' }: { ga
       <button
         onClick={() => openGame(g.key)}
         aria-label={`${g.title}, ${g.consoleName}`}
-        className="block w-full rounded-lg shadow-lg shadow-black/40 ring-1 ring-white/5 transition duration-200 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-tint"
+        className="block w-full rounded-lg ring-1 ring-white/5 transition duration-200 group-hover:-translate-y-1 group-hover:ring-2 group-hover:ring-tint"
       >
         <Poster game={g} />
       </button>

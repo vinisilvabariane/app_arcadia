@@ -290,7 +290,7 @@ export function Raffle() {
               <Poster game={winner} w={480} className="shadow-2xl shadow-black/60" />
             </button>
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold tracking-[.12em] uppercase brightness-150" style={{ color: winner.color }}>
+              <div className="text-xs font-bold tracking-[.12em] uppercase" style={{ color: `color-mix(in srgb, ${winner.color} 55%, white)` }}>
                 Hoje você joga · {[winner.consoleName, ...winner.path].join(' / ')}
               </div>
               <h2 className="display mt-2 text-[clamp(30px,5vw,48px)]">{winner.title}</h2>

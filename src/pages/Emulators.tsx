@@ -11,10 +11,10 @@ function EmuCard({ emu: e, mine, wide }: { emu: Emulator; mine: Record<string, s
   return (
     <article style={cvar(e.color)} className={'relative flex flex-col gap-3.5 overflow-hidden rounded-2xl bg-ink-2 p-5 ring-1 ring-line transition hover:-translate-y-0.5 hover:ring-white/25 ' + (wide ? 'sm:col-span-2' : '')}>
       <div aria-hidden className="absolute inset-x-0 top-0 h-1 bg-(--c)" />
-      <div aria-hidden className="absolute -top-16 -right-16 size-44 rounded-full bg-(--c) opacity-20 blur-2xl" />
+      <div aria-hidden className="absolute -top-16 -right-16 size-44 bg-[radial-gradient(closest-side,var(--c),transparent)] opacity-25" />
       <div className="relative">
         <div className="display text-3xl">{e.name}</div>
-        <div className="mt-1 text-[13px] font-semibold text-(--c) brightness-150">{e.for}</div>
+        <div className="mt-1 text-[13px] font-semibold text-[color-mix(in_srgb,var(--c)_55%,white)]">{e.for}</div>
       </div>
       <p className="relative text-sm leading-relaxed text-fg/75">{e.desc}</p>
       <div className="relative flex flex-wrap gap-1">

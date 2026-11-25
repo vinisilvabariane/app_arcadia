@@ -46,20 +46,20 @@ export function GameModal() {
   if (!g || !c) return null;
 
   return (
-    <div ref={scroller} className="fixed inset-0 z-50 animate-fade overflow-y-auto bg-black/75 backdrop-blur-sm sm:p-6" onClick={(e) => e.target === e.currentTarget && close()}>
+    <div ref={scroller} className="fixed inset-0 z-50 animate-fade overflow-y-auto bg-black/85 sm:p-6" onClick={(e) => e.target === e.currentTarget && close()}>
       <div role="dialog" aria-modal="true" aria-label={g.title} className="relative mx-auto min-h-full max-w-4xl animate-rise overflow-hidden bg-ink-2 shadow-2xl ring-line sm:min-h-0 sm:rounded-2xl sm:ring-1">
-        <button onClick={close} aria-label="Fechar" className="absolute top-3 right-3 z-10 grid size-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur transition hover:bg-black/90">
+        <button onClick={close} aria-label="Fechar" className="absolute top-3 right-3 z-10 grid size-10 place-items-center rounded-full bg-black/60 text-white transition hover:bg-black/90">
           <X size={18} strokeWidth={2.6} />
         </button>
 
         <div className="relative flex flex-col gap-6 p-5 pt-14 sm:flex-row sm:p-8">
-          <div aria-hidden className="absolute inset-0 scale-125 bg-cover bg-center opacity-45 blur-2xl" style={bg ? { backgroundImage: `url('${bg}')` } : { background: g.color }} />
+          <div aria-hidden className="absolute inset-0 bg-cover bg-center opacity-45" style={bg ? { backgroundImage: `url('${bg}')` } : { background: g.color }} />
           <div aria-hidden className="absolute inset-0 bg-linear-to-b from-ink-2/30 to-ink-2" />
           <div className="relative mx-auto w-40 shrink-0 sm:mx-0 sm:w-52">
             <Poster game={g} w={480} badge className="shadow-2xl shadow-black/60" />
           </div>
           <div className="relative min-w-0 flex-1">
-            <div className="text-xs font-bold tracking-[.12em] uppercase brightness-150" style={{ color: g.color }}>
+            <div className="text-xs font-bold tracking-[.12em] uppercase" style={{ color: `color-mix(in srgb, ${g.color} 55%, white)` }}>
               {[g.consoleName, ...g.path].join(' / ')}
             </div>
             <h2 className="display mt-2 text-[clamp(30px,5vw,48px)]">{g.title}</h2>

@@ -25,12 +25,12 @@ export function Tile({ to, color, covers = [], title, subtitle, count, corner, f
     <Link
       to={to}
       style={cvar(color, { background: 'linear-gradient(150deg, var(--c), color-mix(in srgb, var(--c) 38%, #0b0c12))' })}
-      className="group relative flex h-44 flex-col justify-end overflow-hidden rounded-2xl p-4 shadow-lg shadow-black/40 ring-1 ring-white/10 transition duration-200 hover:-translate-y-1 hover:shadow-2xl hover:ring-white/40 sm:h-48"
+      className="group relative flex h-44 flex-col justify-end overflow-hidden rounded-2xl p-4 ring-1 ring-white/10 transition-transform duration-200 hover:-translate-y-1 hover:ring-white/40 sm:h-48"
     >
       {covers.length > 0 && (
         <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-1/2 transition duration-300 group-hover:scale-105">
           {covers.slice(0, 3).map((g, i) => (
-            <div key={g.key} className={'absolute w-[84px] shadow-xl shadow-black/50 ' + FAN[i + (3 - Math.min(3, covers.length))]}>
+            <div key={g.key} className={'absolute w-[84px] rounded-lg ring-1 ring-black/40 ' + FAN[i + (3 - Math.min(3, covers.length))]}>
               <Poster game={g} w={200} />
             </div>
           ))}
@@ -41,7 +41,7 @@ export function Tile({ to, color, covers = [], title, subtitle, count, corner, f
       {corner && <div className="absolute top-3 left-3 text-white/90">{corner}</div>}
       <div className="relative max-w-[58%]">
         {/* nomes compridos (franquias, pastas) usam letra menor pra não invadir as capas */}
-        <div className={'display line-clamp-3 break-words text-white drop-shadow-lg ' + (title.length > 8 ? 'text-[22px] leading-none' : 'text-[clamp(28px,3.2vw,38px)]')}>{title}</div>
+        <div className={'display line-clamp-3 break-words text-white [text-shadow:0_2px_8px_rgb(0_0_0/.55)] ' + (title.length > 8 ? 'text-[22px] leading-none' : 'text-[clamp(28px,3.2vw,38px)]')}>{title}</div>
         {subtitle && <div className="mt-1 truncate text-[13px] font-semibold text-white/85">{subtitle}</div>}
         {count && <div className="mt-0.5 font-mono text-[11px] text-white/70">{count}</div>}
         {footer}

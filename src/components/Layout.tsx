@@ -107,7 +107,7 @@ function TopBar() {
   }, []);
 
   return (
-    <header className={'gutter sticky top-0 z-30 flex h-[68px] items-center gap-3 transition duration-300 ' + (scrolled ? 'bg-ink/95 shadow-[0_1px_0_var(--color-line),0_12px_30px_-18px_#000] backdrop-blur' : 'bg-linear-to-b from-ink/90 to-ink/40')}>
+    <header className={'gutter sticky top-0 z-30 flex h-[68px] items-center gap-3 transition duration-300 ' + (scrolled ? 'bg-ink/95 shadow-[0_1px_0_var(--color-line),0_12px_30px_-18px_#000]' : 'bg-linear-to-b from-ink/90 to-ink/40')}>
       <Link to="/" aria-label="Arcádia, início" className="shrink-0">
         <Logo />
       </Link>
@@ -146,12 +146,12 @@ function TopBar() {
 function TabBar() {
   const isActive = useNavActive();
   return (
-    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-ink/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+    <nav aria-label="Principal" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-ink/95 pb-[env(safe-area-inset-bottom)] lg:hidden">
       {NAV.map((n) => {
         const on = isActive(n);
         return (
           <NavLink key={n.to} to={n.to} className={'flex min-w-0 flex-1 flex-col items-center gap-1 px-0.5 py-2.5 text-[10px] font-semibold tracking-tight transition ' + (on ? 'text-fg' : 'text-muted')}>
-            <n.icon size={20} strokeWidth={2.2} className={on ? 'text-tint brightness-150' : ''} />
+            <n.icon size={20} strokeWidth={2.2} className={on ? 'text-tint-hi' : ''} />
             <span className="max-w-full truncate">{n.label}</span>
           </NavLink>
         );
@@ -232,7 +232,7 @@ export function Layout() {
   return (
     <div className="relative min-h-screen">
       {/* brilho da cor do console no topo da página */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 h-[70vh] bg-[radial-gradient(80%_60%_at_20%_0%,color-mix(in_srgb,var(--tint)_22%,transparent),transparent_70%)]" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[70vh] bg-[radial-gradient(80%_60%_at_20%_0%,color-mix(in_srgb,var(--tint)_22%,transparent),transparent_70%)]" />
       <TopBar />
       <main className="relative pb-28 lg:pb-16">{status === 'error' ? <ErrorBox message={error} /> : <Outlet />}</main>
       <TabBar />

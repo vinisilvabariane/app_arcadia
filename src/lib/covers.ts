@@ -173,7 +173,8 @@ export function hasCover(g: Game): boolean {
 
 /* As capas originais são PNGs grandes (centenas de KB cada). Passamos pelo wsrv.nl,
    um redimensionador público e gratuito, que devolve WebP do tamanho certo (~10–20 KB).
-   Se ele falhar, a imagem cai no PNG original. */
+   Se ele falhar, fica o cartão colorido: cair no PNG original fazia o navegador
+   decodificar centenas de imagens enormes e travava a página. */
 const IMG_PROXY = 'https://wsrv.nl/?url=';
 const sized = (raw: string, w: number, extra = '') => IMG_PROXY + encodeURIComponent(raw) + '&w=' + w + '&output=webp&q=72' + extra;
 
@@ -185,13 +186,13 @@ export function coverUrls(g: Game, w = 320, blur = false): string[] {
   const raw = (n: string) => repo + encodeURIComponent(n.replace(/[&*/:`<>?\\|"]/g, '_')) + '.png';
   const px = (n: string) => (blur ? sized(raw(n), 64, '&blur=2') : sized(raw(n), w));
   if (loadedIdx(g.sys)) {
-    // Lista carregada: usa só o que existe de verdade no acervo (versão leve, depois a original).
+    // Lista carregada: usa só o que existe de verdade no acervo.
     const hit = findCover(g);
-    return hit ? (blur ? [px(hit)] : [px(hit), raw(hit)]) : [];
+    return hit ? [px(hit)] : [];
   }
-  // Lista indisponível: tenta o nome exato e variações com região (só versões leves).
+  // Lista indisponível: tenta só o nome exato e a versão americana (poucas tentativas, pra não encher a rede de 404).
   const clean = g.base.replace(TAGS_RE, '').trim();
-  return [...new Set([g.base, clean + ' (USA)', clean + ' (World)', clean + ' (Europe)', clean + ' (Japan)'])].map(px);
+  return [...new Set([g.base, clean + ' (USA)'])].map(px);
 }
 
 async function fetchCoverNames(sys: string): Promise<string[]> {

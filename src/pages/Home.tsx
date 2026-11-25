@@ -48,7 +48,7 @@ function Hero({ picks }: { picks: Game[] }) {
 
   return (
     <section className="relative overflow-hidden" onMouseEnter={() => (hover.current = true)} onMouseLeave={() => (hover.current = false)}>
-      <div key={g.key + 'bg'} aria-hidden className="absolute inset-0 scale-125 animate-fade bg-cover bg-center opacity-40 blur-3xl" style={bg ? { backgroundImage: `url('${bg}')` } : { background: g.color }} />
+      <div key={g.key + 'bg'} aria-hidden className="absolute inset-0 animate-fade bg-cover bg-center opacity-40" style={bg ? { backgroundImage: `url('${bg}')` } : { background: g.color }} />
       <div aria-hidden className="absolute inset-0 bg-linear-to-b from-transparent via-ink/40 to-ink" />
       <div key={g.key} className="gutter relative flex min-h-[52vh] animate-rise items-center gap-4 py-10 sm:gap-10 sm:py-14">
         <div className="min-w-0 flex-1">

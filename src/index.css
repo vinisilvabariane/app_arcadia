@@ -44,6 +44,8 @@
 /* --tint é a cor do console/página atual: muda em tempo real (ver useTint) */
 @theme inline {
   --color-tint: var(--tint);
+  /* versão clara do tint, pra texto (cores de console escuras somem no fundo preto) */
+  --color-tint-hi: color-mix(in srgb, var(--tint) 55%, white);
 }
 
 :root {
@@ -97,11 +99,6 @@
   &::-webkit-scrollbar {
     display: none;
   }
-}
-
-/* some nas pontas de uma faixa que rola de lado */
-@utility fade-x {
-  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
 }
 
 /* confete do sorteio */

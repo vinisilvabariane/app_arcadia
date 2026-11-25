@@ -1,5 +1,6 @@
 import { Download, Trash2, Upload, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { InstallAction } from '../components/InstallCard';
 import { EmptyBox, PageHero, SectionHead, Segmented, btnPlay, btnSoft } from '../components/ui';
 import { HOME_TINT } from '../data/consoles';
 import { ROM_CACHE_LIMITS } from '../data/play';
@@ -21,6 +22,7 @@ import {
   type SaveInfo,
 } from '../lib/playdb';
 import { useTint } from '../lib/useTint';
+import { installAvailable, useInstall } from '../store/install';
 import { useUi } from '../store/ui';
 
 const KIND = { sram: 'Save do jogo', state: 'Estado salvo' } as const;
@@ -30,6 +32,9 @@ const LIMIT_OPTIONS = ROM_CACHE_LIMITS.map(([value, label]) => [String(value), l
 export function CachePage() {
   useTint(HOME_TINT);
   const toast = useUi((s) => s.toast);
+  const canInstall = useInstall(installAvailable);
+  const ios = useInstall((s) => s.ios);
+  const standalone = useInstall((s) => s.standalone);
   const [roms, setRoms] = useState<RomInfo[] | null>(null);
   const [saves, setSaves] = useState<SaveInfo[]>([]);
   const [limit, setLimit] = useState(getRomLimit);
@@ -216,6 +221,23 @@ export function CachePage() {
           </ul>
         )}
       </section>
+
+      {(canInstall || standalone) && (
+        <section className="gutter mt-12 max-w-4xl">
+          <SectionHead title="App" />
+          <div className="rounded-2xl bg-ink-2 p-5 ring-1 ring-line">
+            {standalone ? (
+              <p className="text-sm text-fg/85">Você está usando o Arcádia instalado como app.</p>
+            ) : (
+              <>
+                <p className="text-sm text-fg/85">Instale o Arcádia pra ter o ícone na tela inicial e abrir em tela cheia, sem a barra do navegador.</p>
+                <InstallAction className="mt-4" />
+                {ios && <p className="mt-3 text-xs text-muted">No iPhone e no iPad o app guarda os dados separado do Safari: exporte os saves aqui antes e importe depois, já dentro do app.</p>}
+              </>
+            )}
+          </div>
+        </section>
+      )}
     </>
   );
 }

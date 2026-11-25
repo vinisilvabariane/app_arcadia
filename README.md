@@ -9,6 +9,7 @@ Meu acervo pessoal de jogos: um catálogo estilo streaming das ROMs guardadas no
 - **Minha lista** de favoritos, salva no navegador
 - **Sortear**: roleta que escolhe o que jogar
 - **Emuladores**: links oficiais, filtrados pelos consoles que existem no acervo
+- **Instalável**: no celular (ou no PC) dá pra instalar como app, com ícone e tela cheia
 - **Busca** que respeita onde você está (dentro de um console ou franquia, procura só ali), capas automáticas (libretro-thumbnails) e sinopse (Wikipédia)
 
 ## Tecnologias
@@ -23,6 +24,7 @@ npm run dev      # http://localhost:5173
 npm run build    # confere os tipos e gera a pasta dist/
 npm run preview  # serve a dist/ pra conferir o build
 npm run covers   # (opcional) baixa as listas de capas pra public/covers/
+npm run icons    # (opcional) refaz os ícones do app em public/icons/
 ```
 
 Para mexer no visual sem depender do Drive, crie um `.env.local` com `VITE_USE_MOCK=1` (veja `.env.example`).
@@ -90,6 +92,15 @@ Na primeira visita o site baixa tudo e guarda; nas seguintes abre do que está g
 | Favoritos e sinopses | `localStorage` | — |
 
 O service worker só é registrado na versão publicada (`npm run build`), não no `npm run dev`. Para testar o cache localmente: `npm run build && npm run preview`.
+
+### Instalar como app
+
+O site é um PWA: `public/manifest.webmanifest` diz o nome, as cores e os ícones, e o service worker deixa abrir sem internet.
+
+- **Android / Chrome / Edge:** aparece o convite "Usar o Arcádia como app" com o botão **Instalar app** (o navegador também oferece no menu dele).
+- **iPhone / iPad:** o Safari não deixa o site abrir a instalação. O convite mostra o caminho: **Compartilhar → Adicionar à Tela de Início**. Lá o app guarda os dados separado do Safari, então exporte os saves antes e importe depois.
+- Fechou o convite? A opção continua na tela *Cache e saves*.
+- **Ícones:** ficam em `public/icons/` e são gerados por `npm run icons` (`scripts/make-icons.mjs`), a partir do mesmo desenho do `favicon.svg`.
 
 ## Publicação (GitHub Pages)
 

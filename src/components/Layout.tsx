@@ -7,6 +7,7 @@ import { useFavs } from '../store/favorites';
 import { useLibrary } from '../store/library';
 import { useUi } from '../store/ui';
 import { GameModal } from './GameModal';
+import { InstallCard } from './InstallCard';
 import { Logo } from './Logo';
 
 /** tab = nome mais curto pra barra de baixo do celular, onde cada item tem pouco espaço */
@@ -280,6 +281,7 @@ export function Layout() {
       <main className="relative pb-28 lg:pb-16">{status === 'error' ? <ErrorBox message={error} /> : <Outlet />}</main>
       <TabBar />
       <GameModal />
+      <InstallCard />
       <Toast />
     </div>
   );

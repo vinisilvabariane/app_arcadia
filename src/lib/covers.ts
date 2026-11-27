@@ -29,17 +29,31 @@ const TAGS_RE = /\s*[([][^)\]]*[)\]]/g;
 
 const repoName = (sys: string) => sys.replace(/ /g, '_');
 
+/* "&" some junto com "and": o libretro grava "Battletoads & Double Dragon" como
+   "Battletoads _ Double Dragon", e tem acervo que escreve "and" por extenso. */
 function coverKey(s: string): string {
-  s = String(s).replace(/\.png$/i, '').replace(TAGS_RE, ' ').replace(/&/g, ' and ');
+  s = String(s).replace(/\.png$/i, '').replace(TAGS_RE, ' ').replace(/&/g, ' ');
   s = s.toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '').replace(/_/g, ' ');
-  s = s.replace(/\b(the|a|an)\b/g, ' ');
+  s = s.replace(/\b(the|a|an|and)\b/g, ' ');
   return s.replace(/[^a-z0-9]/g, '');
 }
 
+const STOP = new Set(['the', 'a', 'an', 'and']);
 export function coverWords(s: string): string[] {
-  s = String(s).replace(/\.png$/i, '').replace(TAGS_RE, ' ').replace(/&/g, ' and ').replace(/'/g, '');
+  s = String(s).replace(/\.png$/i, '').replace(TAGS_RE, ' ').replace(/&/g, ' ').replace(/'/g, '');
   s = s.toLowerCase().normalize('NFD').replace(/[^\x00-\x7F]/g, '');
-  return s.split(/[^a-z0-9]+/).filter((w) => w && w !== 'the' && w !== 'a' && w !== 'an');
+  return s.split(/[^a-z0-9]+/).filter((w) => w && !STOP.has(w));
+}
+
+/* Sobras que vêm no nome do arquivo e não fazem parte do título:
+   "Mother_3_BR", "GTA 3 ( Legendado )", "...-base-nsp", "[nxbrew.com]", "v1.2". */
+export function stripJunk(s: string): string {
+  return s
+    .replace(/\bbase(?=[\s_-]+(nsp|xci|nsz|xcz)\b)/gi, ' ')
+    .replace(/\b(nsp|xci|nsz|xcz|wbfs|nkit|nxbrew(\.com)?|eshop|legendado|dublado|traduzido|traducao|clandoordie|pt[\s_-]?br|br)\b/gi, ' ')
+    .replace(/\bv\d+(\.\d+)*\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** iguais, ou com 1 letra de diferença em palavras longas */
@@ -140,7 +154,7 @@ let matchDirty: Record<string, 1> = {};
 let matchTimer: ReturnType<typeof setTimeout> | undefined;
 
 function matchMem(sys: string) {
-  if (!MATCH_MEM[sys]) MATCH_MEM[sys] = storage.get<Record<string, string>>('arc-match-v1:' + sys, {});
+  if (!MATCH_MEM[sys]) MATCH_MEM[sys] = storage.get<Record<string, string>>('arc-match-v2:' + sys, {});
   return MATCH_MEM[sys];
 }
 function saveMatchMem(sys: string) {
@@ -148,13 +162,13 @@ function saveMatchMem(sys: string) {
   // grava no máximo a cada 1,5 s (e não a cada jogo resolvido)
   matchTimer ??= setTimeout(() => {
     matchTimer = undefined;
-    Object.keys(matchDirty).forEach((k) => storage.set('arc-match-v1:' + k, MATCH_MEM[k]));
+    Object.keys(matchDirty).forEach((k) => storage.set('arc-match-v2:' + k, MATCH_MEM[k]));
     matchDirty = {};
   }, 1500);
 }
 function forgetMatches(sys: string) {
   MATCH_MEM[sys] = {};
-  storage.remove('arc-match-v1:' + sys);
+  storage.remove('arc-match-v2:' + sys);
 }
 
 function loadedIdx(sys: string | null): CoverIndex | null {
@@ -174,7 +188,7 @@ function findCover(g: Game): string | null | undefined {
     needList(g.sys);
     return undefined;
   }
-  const clean = g.base.replace(TAGS_RE, '').trim();
+  const clean = stripJunk(g.base.replace(TAGS_RE, '')) || g.base.replace(TAGS_RE, '').trim();
   const tries = [coverKey(clean)];
   if (/\s(I|1)$/i.test(clean)) tries.push(coverKey(clean.replace(/\s(I|1)$/i, '')));
   let hit: string | null = null;
@@ -187,8 +201,152 @@ function findCover(g: Game): string | null | undefined {
 
 /** Tem (ou provavelmente tem) capa? Enquanto a lista não chega, assume que sim. */
 export function hasCover(g: Game): boolean {
-  if (!g.sys || g.folder) return false;
-  return findCover(g) !== null;
+  if (g.folder) return false;
+  const hit = g.sys ? findCover(g) : null;
+  if (hit !== null) return true;
+  return !!wikiKnown(g); // capa da Wikipédia já encontrada antes
+}
+
+/* ---------- Capa de reserva: a imagem do artigo do jogo na Wikipédia (inglês) ----------
+   Para quem o libretro não cobre (Switch, Xbox 360, PS3, Wii U...) ou não achou.
+   A Wikipédia bloqueia quem faz muitos pedidos seguidos, então:
+   - pergunta até 50 títulos num pedido só (com as variações de cada nome), sem busca livre;
+   - espaça os pedidos e, se for bloqueado, espera 10 minutos sem marcar nada como "sem capa";
+   - guarda no navegador: capa achada fica pra sempre; "não achou" vale 7 dias. */
+const WIKI_KEY = 'arc-wikicapa-v1';
+const WIKI_MISS_TTL = 7 * 864e5;
+type WikiMem = Record<string, { u: string; t: number }>;
+let wikiMem: WikiMem | null = null;
+const wm = () => (wikiMem ??= storage.get<WikiMem>(WIKI_KEY, {}));
+const wikiPending = new Set<string>();
+let wikiTimer: ReturnType<typeof setTimeout> | undefined;
+let wikiBusy = false;
+let wikiBlockedUntil = 0;
+
+const ARCADE_SYS = new Set(['MAME', 'FBNeo - Arcade Games']);
+/** Título limpo usado na Wikipédia; null = esse arquivo não deve ganhar capa de lá. */
+function wikiTitle(g: Game): string | null {
+  if (g.folder || (g.sys && ARCADE_SYS.has(g.sys)) || /^(dlc|updates?|bios|patch)/i.test(g.path[0] || '')) return null;
+  let t = g.title.replace(/[_]+/g, ' ').replace(/\[.*$/, '');
+  if (!/\s/.test(t.trim())) t = t.replace(/-+/g, ' '); // "team-sonic-racing-base-nsp"
+  t = stripJunk(t)
+    .replace(/\s+-\s+/g, ' ')
+    .replace(/[\s-]+$/, '')
+    .replace(/\s+base$/i, '') // "persona 3 base"
+    .trim();
+  return t.length >= 3 ? t : null;
+}
+function wikiKnown(g: Game): string | null {
+  const t = wikiTitle(g);
+  const e = t ? wm()[t] : undefined;
+  return e?.u || null;
+}
+/** URL da capa na Wikipédia, null (não tem) ou undefined (ainda vai perguntar). */
+function wikiCover(g: Game): string | null | undefined {
+  const t = wikiTitle(g);
+  if (!t) return null;
+  const e = wm()[t];
+  if (e && (e.u || Date.now() - e.t < WIKI_MISS_TTL)) return e.u || null;
+  if (!wikiPending.has(t)) {
+    wikiPending.add(t);
+    wikiTimer ??= setTimeout(runWiki, 400);
+  }
+  return undefined;
+}
+
+const EDITION =
+  /\s+(deluxe|complete|definitive|digital bonus|game of the year|goty|master collection|special|anniversary)?\s*(edition|version|collection version)$|\s+(hd|remastered|deluxe)$/i;
+const ROMAN = /\b(hd|rpg|snk|svc|ii|iii|iv|vi|vii|viii|ix|xi|xii|xiii|cod|gta|dx)\b/gi;
+const SMALL = /\s(Of|The|And|In|At|On|To|A|An|For|Vs)\b/g;
+const titleCase = (t: string) =>
+  t.toLowerCase().replace(/(^|\s)([a-z])/g, (_m, a: string, b: string) => a + b.toUpperCase()).replace(SMALL, (w) => w.toLowerCase()).replace(ROMAN, (w) => w.toUpperCase());
+
+/** Jeitos possíveis de o artigo se chamar: "Animal Crossing: New Horizons", "Celeste (video game)"... */
+function wikiVariants(t0: string): string[] {
+  const bases = new Set([t0]);
+  if (t0 === t0.toUpperCase() || t0 === t0.toLowerCase()) bases.add(titleCase(t0));
+  [...bases].forEach((b) => bases.add(b.replace(/\s+(1|I)$/, '')));
+  [...bases].forEach((b) => bases.add(b.replace(EDITION, '').trim()));
+  [...bases].forEach((b) => /pokemon/i.test(b) && bases.add(b.replace(/pokemon/i, 'Pokémon')));
+  [...bases].forEach((b) => / and /i.test(b) && bases.add(b.replace(/ and /i, ' & ')));
+  [...bases].forEach((b) => / vs /i.test(b) && bases.add(b.replace(/ vs /i, ' vs. ')));
+  [...bases].forEach((b) => /\bLinks\b/.test(b) && bases.add(b.replace(/\bLinks\b/, "Link's")));
+  const out = new Set<string>();
+  for (const b of bases) {
+    if (!b) continue;
+    out.add(b);
+    out.add(b + ' (video game)');
+    const w = b.split(' ');
+    for (let i = 1; i < w.length; i++) out.add(w.slice(0, i).join(' ') + ': ' + w.slice(i).join(' '));
+  }
+  return [...out].slice(0, 24);
+}
+
+interface WikiPage {
+  title: string;
+  description?: string;
+  thumbnail?: { source: string };
+}
+// "2017 video game", "2017 puzzle-solving horror game"... mas não franquia, série ou lista
+const IS_GAME = /\bgame\b|video ?game|compilation|remaster|remake|expansion pack/i;
+const NOT_GAME = /franchise|series|media|list/i;
+
+async function runWiki(): Promise<void> {
+  wikiTimer = undefined;
+  if (wikiBusy || !wikiPending.size) return;
+  if (Date.now() < wikiBlockedUntil) {
+    wikiTimer = setTimeout(runWiki, wikiBlockedUntil - Date.now());
+    return;
+  }
+  wikiBusy = true;
+  // monta um pedido com até 50 nomes (cada título leva suas variações)
+  const ask = new Map<string, string>();
+  const titles: string[] = [];
+  for (const t of wikiPending) {
+    const v = wikiVariants(t);
+    if (ask.size + v.length > 50 && titles.length) break;
+    v.forEach((x) => !ask.has(x) && ask.set(x, t));
+    titles.push(t);
+  }
+  let ok = false;
+  try {
+    const url =
+      'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1' +
+      '&prop=pageimages|description&piprop=thumbnail&pithumbsize=500&pilicense=any&titles=' +
+      encodeURIComponent([...ask.keys()].join('|'));
+    const r = await fetch(url, { headers: { 'Api-User-Agent': 'Arcadia/2 (catalogo pessoal)' } });
+    const txt = await r.text();
+    if (!r.ok || !txt.startsWith('{')) throw new Error('bloqueado');
+    const j = JSON.parse(txt);
+    // de volta ao nome pedido: vários pedidos podem cair no mesmo artigo
+    // ("Pokémon Scarlet" e "Pokémon Violet" -> "Pokémon Scarlet and Violet")
+    const from: Record<string, string[]> = {};
+    const add = (to: string, names: string[]) => (from[to] = (from[to] || []).concat(names));
+    (j.query?.normalized || []).forEach((n: { from: string; to: string }) => add(n.to, [n.from]));
+    (j.query?.redirects || []).forEach((n: { from: string; to: string }) => add(n.to, from[n.from] || [n.from]));
+    const found: Record<string, string> = {};
+    for (const p of Object.values<WikiPage>(j.query?.pages || {})) {
+      if (!p.thumbnail || !IS_GAME.test(p.description || '') || NOT_GAME.test(p.description || '') || /^list of/i.test(p.title)) continue;
+      [p.title, ...(from[p.title] || [])].forEach((asked) => {
+        const orig = ask.get(asked);
+        if (orig && !found[orig]) found[orig] = p.thumbnail!.source;
+      });
+    }
+    const mem = wm();
+    const now = Date.now();
+    titles.forEach((t) => {
+      mem[t] = { u: found[t] || '', t: now };
+      wikiPending.delete(t);
+    });
+    storage.set(WIKI_KEY, mem);
+    ok = true;
+    if (Object.keys(found).length) notify();
+  } catch {
+    // bloqueado ou sem rede: tenta de novo daqui a 10 minutos, sem marcar nada como "sem capa"
+    wikiBlockedUntil = Date.now() + 10 * 60e3;
+  }
+  wikiBusy = false;
+  if (wikiPending.size) wikiTimer = setTimeout(runWiki, ok ? 1500 : wikiBlockedUntil - Date.now());
 }
 
 /* As capas originais são PNGs grandes (centenas de KB cada). Passamos pelo wsrv.nl,
@@ -200,17 +358,23 @@ const sized = (raw: string, w: number, extra = '') => IMG_PROXY + encodeURICompo
 
 /** URLs a tentar, em ordem. w = largura em px; blur = imagem minúscula pra fundo desfocado. */
 export function coverUrls(g: Game, w = 320, blur = false): string[] {
-  if (!g.sys) return [];
+  const fromWiki = (): string[] => {
+    const u = wikiCover(g);
+    // miniatura da Wikipédia já é pequena: se o redimensionador falhar, dá pra usar ela direto
+    return u ? (blur ? [sized(u, 64, '&blur=2')] : [sized(u, w), u]) : [];
+  };
+  if (!g.sys) return fromWiki();
   const repo = 'https://raw.githubusercontent.com/libretro-thumbnails/' + repoName(g.sys) + '/master/Named_Boxarts/';
   const raw = (n: string) => repo + encodeURIComponent(n.replace(/[&*/:`<>?\\|"]/g, '_')) + '.png';
   const px = (n: string) => (blur ? sized(raw(n), 64, '&blur=2') : sized(raw(n), w));
   const hit = findCover(g);
   if (hit) return [px(hit)]; // só o que existe de verdade no acervo
-  // sem capa, ou a lista ainda está chegando (esperar evita dezenas de tentativas que dão 404)
-  if (hit === null || COVER_IDX[g.sys] !== null) return [];
+  if (hit === null) return fromWiki(); // o libretro não tem: tenta a Wikipédia
+  // a lista ainda está chegando (esperar evita dezenas de tentativas que dão 404)
+  if (COVER_IDX[g.sys] !== null) return [];
   // Lista indisponível: tenta só o nome exato e a versão americana (poucas tentativas, pra não encher a rede de 404).
   const clean = g.base.replace(TAGS_RE, '').trim();
-  return [...new Set([g.base, clean + ' (USA)'])].map(px);
+  return [...[...new Set([g.base, clean + ' (USA)'])].map(px), ...fromWiki()];
 }
 
 /* De onde vêm as listas de nomes:
@@ -301,6 +465,12 @@ function pump(): void {
 /** Liga o aviso de "chegou capa nova" e confere se alguma lista mudou desde a última visita. */
 export function initCovers(onChange: () => void): void {
   notify = onChange;
+  // casamentos da versão anterior (antes da correção do "&"): recalculados com a regra nova
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith('arc-match-v1:')).forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* sem acesso ao localStorage */
+  }
   fetch(import.meta.env.BASE_URL + 'covers/manifest.json')
     .then((r) => (r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : null))
     .then((manifest: Record<string, string> | null) => {

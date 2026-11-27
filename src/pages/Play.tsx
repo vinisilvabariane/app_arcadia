@@ -5,10 +5,11 @@ import { btnGo, btnPlay, btnSoft } from '../components/ui';
 import { EJS_DATA } from '../data/play';
 import { fmtSize, storage } from '../lib/format';
 import { consolePath, downloadUrl } from '../lib/games';
-import { downloadRom, PlayError, playCore, type Progress } from '../lib/play';
+import { downloadRom, PlayError, playCore, romUrl, type Progress } from '../lib/play';
 import { getNoCache, getRom, getSave, putRom, putSave, requestPersist } from '../lib/playdb';
 import { useTint } from '../lib/useTint';
 import { useLibrary } from '../store/library';
+import type { Game } from '../types';
 
 /* Tela "Jogar": busca a ROM (cache ou Drive) e roda no EmulatorJS, dentro de um iframe
    descartável (public/player.html). Fica fora do Layout do site: sem barra de busca nem
@@ -47,6 +48,13 @@ const signature = (b: Uint8Array) => {
 };
 
 type Phase = 'warn' | 'loading' | 'starting' | 'playing' | 'error';
+
+/** Endereço da BIOS (ex.: neogeo.zip) guardada na mesma pasta do console no Drive. */
+function biosFromDrive(g: Game, name: string): string | undefined {
+  const c = useLibrary.getState().consoles.find((x) => x.id === g.consoleId);
+  const b = c?.games?.find((x) => (x.real || x.file).toLowerCase() === name);
+  return b ? romUrl(b.id) : undefined;
+}
 
 export function PlayPage() {
   const { key = '' } = useParams();
@@ -100,7 +108,7 @@ export function PlayPage() {
         if (getNoCache()) {
           say('Jogando sem guardar no cache');
         } else {
-          const saved = await putRom({ id: g.id, name: g.file, size: blob.size, blob });
+          const saved = await putRom({ id: g.id, name: g.real || g.file, size: blob.size, blob });
           if (saved === 'too-big') say('ROM maior que o limite do cache: rodando sem guardar');
           else if (saved !== 'saved') say('Navegador sem espaço: rodando sem guardar');
         }
@@ -128,12 +136,13 @@ export function PlayPage() {
     win.startGame({
       dataPath: EJS_DATA,
       blob: rom.blob,
-      fileName: g.file,
+      // nome verdadeiro: o FBNeo reconhece o jogo de arcade pelo nome curto (kof2002.zip)
+      fileName: g.real || g.file,
       core: core.core,
       // identificador estável: o id do Drive (o nome do arquivo pode se repetir entre pastas)
       gameName: g.id,
       color: g.color,
-      biosUrl: core.bios,
+      biosUrl: core.bios || (core.biosFile ? biosFromDrive(g, core.biosFile) : undefined),
       sram: rom.sram,
       on: {
         start(sramOk) {

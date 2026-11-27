@@ -24,6 +24,8 @@ export interface PlayCore {
   experimental?: boolean;
   /** BIOS opcional (URL). Sem ela o núcleo usa a emulação embutida. */
   bios?: string;
+  /** BIOS que fica na mesma pasta do console no Drive (ex.: neogeo.zip); vai junto com o jogo */
+  biosFile?: string;
 }
 
 /** sigla do console (ConsoleInfo.short) -> núcleo. O que não está aqui não ganha botão Jogar. */
@@ -39,8 +41,10 @@ export const PLAY_CORES: Record<string, PlayCore> = {
   DS: { core: 'nds' },
   PCE: { core: 'pce' },
   '2600': { core: 'atari2600' },
-  N64: { core: 'n64', experimental: true },
-  PS1: { core: 'psx', experimental: true },
+  N64: { core: 'n64' },
+  PS1: { core: 'psx' },
+  // FBNeo: precisa do neogeo.zip (BIOS) e do nome curto do arquivo (kof2002.zip)
+  NEO: { core: 'arcade', biosFile: 'neogeo.zip' },
 };
 
 const MB = 1024 * 1024;

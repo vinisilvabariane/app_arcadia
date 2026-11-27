@@ -12,7 +12,10 @@ export const PLAY_ENABLED: boolean = (!!DRIVE_API_KEY || !!DEV_ROM_URL) && playS
     (console sem núcleo, pasta, DLC/update, ou a pasta RECOMPS, que não tem sigla de console). */
 export function playCore(g: Game | undefined): PlayCore | null {
   if (!PLAY_ENABLED || !g || g.folder || isExtra(g)) return null;
-  return PLAY_CORES[g.short] || null;
+  if (/^bios$/i.test(g.path[0] || '')) return null; // arquivo de BIOS não é jogo
+  const core = PLAY_CORES[g.short];
+  if (!core || (core.biosFile && (g.real || g.file).toLowerCase() === core.biosFile)) return null;
+  return core;
 }
 
 export const playPath = (g: Game) => '/jogar/' + encodeURIComponent(g.key);
@@ -39,7 +42,7 @@ export interface Progress {
    em arquivo grande, devolve uma página de aviso em vez do arquivo. A API v3 com alt=media serve.
    Sem cabeçalhos extras (nem Authorization, nem Range): assim o navegador não faz a consulta
    prévia de CORS. */
-const romUrl = (id: string) =>
+export const romUrl = (id: string) =>
   DEV_ROM_URL || 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) + '?alt=media&key=' + encodeURIComponent(DRIVE_API_KEY);
 
 async function explain(res: Response): Promise<PlayError> {

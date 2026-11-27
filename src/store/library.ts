@@ -62,6 +62,7 @@ function toGames(c: GameConsole, files: ApiFile[]): Game[] {
       id: f.id,
       key: f.id,
       file: f.file,
+      real: f.real,
       size: f.size || 0,
       updated: f.updated,
       folder: !!f.folder,

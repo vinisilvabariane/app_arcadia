@@ -4,7 +4,7 @@ import { Tile, tileGrid, TileSkeletons } from '../components/Tile';
 import { PageHero, PtFlag } from '../components/ui';
 import { HOME_TINT } from '../data/consoles';
 import { fmtNum, plural } from '../lib/format';
-import { byNewest, consolePath, pickCovers } from '../lib/games';
+import { consolePath, pickCovers } from '../lib/games';
 import { useTint } from '../lib/useTint';
 import { useLibrary, useStillLoading } from '../store/library';
 
@@ -17,7 +17,6 @@ export function Consoles() {
   // capas do leque de cada console: calcula uma vez por mudança, não a cada redesenho
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const fans = useMemo(() => new Map(consoles.map((c) => [c.id, c.games ? pickCovers(c.games, 3) : []])), [consoles, coverTick]);
-  const recent = useMemo(() => byNewest(all, 30), [all]);
 
   return (
     <>
@@ -48,7 +47,6 @@ export function Consoles() {
           <TileSkeletons />
         )}
       </section>
-      <GameRail title="Adicionados recentemente" games={recent} />
     </>
   );
 }

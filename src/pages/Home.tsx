@@ -10,8 +10,8 @@ import { cvar, PtFlag } from '../components/ui';
 import { HOME_TINT } from '../data/consoles';
 import { FRANCHISES } from '../data/franchises';
 import { coverUrls, hasCover } from '../lib/covers';
-import { fmtNum, fmtSize, hash, plural } from '../lib/format';
-import { byNewest, consolePath, downloadUrl, franchiseGames, isExtra, pickCovers, rowOrder } from '../lib/games';
+import { fmtNum, fmtSize, hash, norm, plural } from '../lib/format';
+import { consolePath, downloadUrl, franchiseGames, isExtra, pickCovers, rowOrder } from '../lib/games';
 import { getSynopsis } from '../lib/synopsis';
 import { useTint } from '../lib/useTint';
 import { useFavs } from '../store/favorites';
@@ -157,7 +157,7 @@ function Hero({ picks }: { picks: Game[] }) {
 function TopTen({ games }: { games: Game[] }) {
   if (games.length < 5) return null;
   return (
-    <Rail title="Top 10 recém-chegados" className="relative z-10 -mt-16">
+    <Rail title="Top 10 do dia" className="relative z-10 -mt-16">
       {games.map((g, i) => (
         <div key={g.key} className="flex shrink-0 snap-start items-end">
           <span aria-hidden className="display -mr-2 text-[120px] leading-[.78] text-ink select-none [-webkit-text-stroke:3px_#6b7189] sm:-mr-5 sm:text-[190px]">
@@ -249,14 +249,31 @@ export function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consoles, all, seed, coverTick]);
 
-  // Top 10: os que chegaram por último, entre os que têm capa (é a vitrine da página).
-  // Olha só os 80 mais recentes pra não procurar capa no acervo inteiro.
+  // Top 10 do dia: sorteio que muda à meia-noite (o mesmo o dia todo, em qualquer aparelho).
+  // Prioriza as franquias: no máximo um jogo de cada, em ordem sorteada; se faltar, completa com o resto.
+  const loadingAll = useStillLoading();
   const top10 = useMemo(() => {
-    const newest = byNewest(all.filter((g) => !g.folder && !isExtra(g)), 80);
-    const withCover = newest.filter(hasCover);
-    return (withCover.length >= 10 ? withCover : newest).slice(0, 10);
+    if (loadingAll) return [];
+    const day = new Date().toLocaleDateString('sv'); // AAAA-MM-DD no fuso do aparelho
+    const out: Game[] = [];
+    const seen = new Set<string>();
+    const take = (g: Game | undefined) => {
+      const k = norm(g?.title || '');
+      if (!g || seen.has(k) || out.length >= 10) return;
+      seen.add(k);
+      out.push(g);
+    };
+    FRANCHISES.map((f) => ({ f, games: franchiseGames(all, f) }))
+      .filter((x) => x.games.length)
+      .sort((a, b) => hash(a.f.id + day) - hash(b.f.id + day))
+      .forEach(({ games }) => take(pickCovers(games, 1, hash(day))[0]));
+    if (out.length < 10) {
+      const rest = all.filter((g) => !g.folder && !isExtra(g));
+      pickCovers(rest, 20, hash(day)).forEach(take);
+    }
+    return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all, coverTick]);
+  }, [all, loadingAll, coverTick]);
   const pt = useMemo(() => {
     const list = all.filter((g) => g.pt);
     return { total: list.length, row: rowOrder(list).slice(0, 20) };

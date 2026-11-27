@@ -11,7 +11,7 @@ import { btnPlay, btnSoft, Chip, ChipStrip, EmptyBox, Eyebrow, PageHero, Section
 import { HOME_TINT, isPtBr } from '../data/consoles';
 import { emusFor } from '../data/emulators';
 import { fmtSize, plural, rnd } from '../lib/format';
-import { byNewest, consolePath, downloadUrl, inPath, pickCovers, sortList, subfolders, totalSize } from '../lib/games';
+import { consolePath, downloadUrl, inPath, pickCovers, sortList, subfolders, totalSize } from '../lib/games';
 import { useTint } from '../lib/useTint';
 import { useLibrary } from '../store/library';
 import { useUi } from '../store/ui';
@@ -177,7 +177,6 @@ export function ConsolePage({ recomps = false }: { recomps?: boolean }) {
           <b>{plural(inside.length, 'arquivo', 'arquivos')}</b> · {fmtSize(totalSize(inside))}
         </PageHero>
         {folders}
-        <GameRail title="Adicionados recentemente" games={byNewest(inside, 24)} />
       </>
     );
   } else if (!path.length) {
@@ -190,7 +189,6 @@ export function ConsolePage({ recomps = false }: { recomps?: boolean }) {
       <>
         <Billboard game={f} console={c} onShuffle={() => setFeatured(inside[rnd(inside.length)])} />
         {folders}
-        <GameRail title="Adicionados recentemente" games={byNewest(inside, 24)} />
         <GameRail title="Em português" games={pt.slice(0, 30)} count={pt.length} />
       </>
     );

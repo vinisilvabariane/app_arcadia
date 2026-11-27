@@ -10,6 +10,8 @@ export interface ApiFile {
   updated: number;
   folder?: boolean;
   path?: string[];
+  /** nome verdadeiro do arquivo no Drive, quando a API manda outro pra exibir (arcade: "kof2002.zip") */
+  real?: string;
 }
 
 export interface ConsoleInfo {
@@ -24,6 +26,8 @@ export interface Game {
   id: string;
   key: string;
   file: string;
+  /** nome verdadeiro do arquivo no Drive (arcade); sem ele, vale "file" */
+  real?: string;
   size: number;
   updated: number;
   folder: boolean;

@@ -2,7 +2,7 @@
 
 Meu acervo pessoal de jogos: um catálogo estilo streaming das ROMs guardadas no Google Drive, organizado por console.
 
-- **Início** com destaques, fileiras por console, recém-adicionados e jogos em português
+- **Início** com destaques, Top 10 do dia (sorteado todo dia, priorizando as franquias), fileiras por console e jogos em português
 - **Consoles** e subpastas (Jogos, DLC, Updates…)
 - **Recomps**: a pasta `RECOMPS` do Drive tem página própria e não aparece entre os consoles
 - **Franquias** (Mario, Zelda, Pokémon…) juntando jogos de todos os consoles
@@ -56,7 +56,7 @@ Onde mexer nas coisas mais comuns:
 ## De onde vêm os dados
 
 - **Jogos**: um Web App do Google Apps Script lista as pastas do Drive (`getConsoles`, `getGames`, `clearCache`). Cada pasta da raiz é um console.
-- **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
+- **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. Quando o libretro não tem (Switch, Xbox 360, PS3…), vale a imagem do artigo do jogo na Wikipédia em inglês, perguntada em lotes de até 50 títulos e guardada no navegador. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
 - **Sinopses**: Wikipédia (português; se não achar, inglês).
 
 ### Apps Script (`apps-script/`)
@@ -74,7 +74,7 @@ Funções para rodar à mão no editor:
 
 ### Jogar no navegador
 
-Jogos de NES, SNES, Game Boy/Color/Advance, Mega Drive, Master System, Game Gear, DS, PC Engine e Atari 2600 ganham o botão **Jogar** (N64 e PS1 como experimentais). A ROM é buscada direto da API do Drive, guardada no navegador e rodada no [EmulatorJS](https://emulatorjs.org) dentro de um iframe (`public/player.html`).
+Jogos de NES, SNES, Game Boy/Color/Advance, Mega Drive, Master System, Game Gear, DS, PC Engine, Atari 2600, N64, PS1 e Neo Geo ganham o botão **Jogar**. Neo Geo usa o núcleo FBNeo e precisa do `neogeo.zip` (BIOS) na pasta do console. PS2 não tem núcleo no EmulatorJS. A ROM é buscada direto da API do Drive, guardada no navegador e rodada no [EmulatorJS](https://emulatorjs.org) dentro de um iframe (`public/player.html`).
 
 A página **Jogar** (no menu) lista só os consoles que rodam; dentro de cada um, clicar na capa abre o jogo direto no emulador. "Continuar jogando" mostra o que está no cache.
 

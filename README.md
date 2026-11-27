@@ -59,6 +59,19 @@ Onde mexer nas coisas mais comuns:
 - **Capas**: [libretro-thumbnails](https://github.com/libretro-thumbnails), casadas pelo nome do arquivo e redimensionadas pelo wsrv.nl. A lista de nomes de cada console é gerada no deploy (`scripts/fetch-covers.mjs` → `covers/*.json`), porque a API do GitHub só aceita 60 chamadas por hora por IP direto do navegador.
 - **Sinopses**: Wikipédia (português; se não achar, inglês).
 
+### Apps Script (`apps-script/`)
+
+O código do Web App fica em `apps-script/Code.gs` e `apps-script/appsscript.json`. O GitHub só guarda o registro: para valer, cole os dois no editor do Apps Script e publique uma nova versão (Implantar → Gerenciar implantações → Nova versão).
+
+Funções para rodar à mão no editor:
+
+| Função | O que faz |
+| --- | --- |
+| `trazerArquivosDeOutros` | Copia para a sua conta os arquivos que outra pessoa subiu nas suas pastas (ficam no seu espaço e não somem se ela apagar) e tira o original. Continua sozinha a cada minuto até acabar. |
+| `ligarCopiaAutomatica` / `pararCopia` | Liga a cópia de hora em hora e os nomes de arcade 1x por dia / desliga tudo. |
+| `atualizarNomesArcade` | Busca nas listas do MAME e do FBNeo o nome de cada `jogo.zip` das pastas de arcade. O arquivo no Drive não muda (o emulador precisa do nome curto); só o nome que a API manda pro site. BIOS vão pra subpasta `BIOS`. |
+| `gerarRelatorioDuplicados` / `removerDuplicados` | Planilha com os duplicados e, depois de revisar, manda os marcados como REMOVER pra lixeira. |
+
 ### Jogar no navegador
 
 Jogos de NES, SNES, Game Boy/Color/Advance, Mega Drive, Master System, Game Gear, DS, PC Engine e Atari 2600 ganham o botão **Jogar** (N64 e PS1 como experimentais). A ROM é buscada direto da API do Drive, guardada no navegador e rodada no [EmulatorJS](https://emulatorjs.org) dentro de um iframe (`public/player.html`).
